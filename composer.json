@@ -1,0 +1,30 @@
+{
+    "name": "brosta/interframework",
+    "description": "Brosta Interframework",
+    "type": "project",
+    "require": {
+        "php": "^7.2",
+        "guzzlehttp/guzzle": "dev-master",
+        "guzzlehttp/psr7": "dev-master"
+    },
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "John Stamoutsos",
+            "email": "john.stamoutsos@gmail.com"
+        }
+    ],
+    "autoload": {
+        "psr-0": {
+            "Brosta_": "src/"
+        },
+        "classmap": [
+            "src/Brosta/Services/"
+        ]
+    },
+    "extra": {
+        "branch-alias": {
+            "dev-master": "1.x-dev"
+        }
+    }
+}
