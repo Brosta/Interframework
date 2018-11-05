@@ -4,8 +4,13 @@
     "type": "project",
     "require": {
         "php": "^7.2",
-        "guzzlehttp/guzzle": "dev-master",
-        "guzzlehttp/psr7": "dev-master"
+        "nikic/php-parser": "^4.0",
+	    "guzzlehttp/guzzle": "~6.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Brosta\\": "src/interframework/"
+        }
     },
     "license": "MIT",
     "authors": [
@@ -13,18 +18,5 @@
             "name": "John Stamoutsos",
             "email": "john.stamoutsos@gmail.com"
         }
-    ],
-    "autoload": {
-        "psr-0": {
-            "Brosta_": "src/"
-        },
-        "classmap": [
-            "src/Brosta/Services/"
-        ]
-    },
-    "extra": {
-        "branch-alias": {
-            "dev-master": "1.x-dev"
-        }
-    }
+    ]
 }
