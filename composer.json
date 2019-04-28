@@ -3,7 +3,7 @@
     "description": "Brosta Interframework",
     "type": "project",
     "require": {
-	"php": "^7.2",
+	"php": "^7.3",
 	"nikic/php-parser": "dev-master",
 	"guzzlehttp/guzzle": "dev-master"
     },
