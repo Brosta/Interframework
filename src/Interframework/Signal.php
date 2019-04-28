@@ -1,4 +1,4 @@
-PRIVATE FIL<?php
+<?php
 
 namespace Brosta;
 
