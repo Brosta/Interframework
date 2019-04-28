@@ -4,8 +4,7 @@
     "type": "project",
     "require": {
 	"php": "^7.3",
-	"nikic/php-parser": "dev-master",
-	"guzzlehttp/guzzle": "dev-master"
+	"nikic/php-parser": "^4.0"
     },
     "autoload": {
         "psr-4": {
