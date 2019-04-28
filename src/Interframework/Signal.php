@@ -46,54 +46,6 @@ class Signal {
 		}
 
 		$this->set('request.docs', $server['docs']);
-		$this->set('request.scheme', $server['scheme']);<?php
-
-namespace Brosta;
-
-use FilesystemIterator;
-use PhpParser\Error;
-use PhpParser\NodeDumper;
-use PhpParser\ParserFactory;
-use PhpParser\Node;
-use PhpParser\Node\Stmt\Function_;
-use PhpParser\NodeTraverser;
-use PhpParser\NodeVisitorAbstract;
-use PhpParser\PrettyPrinter;
-
-use Closure;
-use stdClass;
-
-ini_set('max_execution_time', 2000);
-ini_set('memory_limit', '-1');
-
-class Signal {
-
-	private $memory = [];
-	private $unique_ids = [];
-
-	public function construct($root, $server = null, $install = '/') {
-
-		$this->reset();
-
-		if($server['uri']) {
-			if($this->sub($server['uri'], 0, 1) == $this->fslash()) {
-				if($server['uri'] == $this->fslash()) {
-					$this->set('request.uri', $server['uri']);
-				} else {
-					if($this->uri_is_safe($server['uri'])) {
-						$this->set('request.uri', $this->sub($server['uri'], 1));
-					} else {
-						$this->fail('Unsafe uri');
-					}
-				}
-			} else {
-				$this->fail('Incorrect uri');
-			}
-		} else {
-			$this->fail('Request uri is empty');
-		}
-
-		$this->set('request.docs', $server['docs']);
 		$this->set('request.scheme', $server['scheme']);
 		$this->set('request.query', $server['query']);
 		$this->set('server.gateway', $server['gateway']);
