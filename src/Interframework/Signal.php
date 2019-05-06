@@ -2,38 +2,24 @@
 
 namespace Brosta;
 
-use FilesystemIterator;
-use PhpParser\Error;
-use PhpParser\NodeDumper;
-use PhpParser\ParserFactory;
-use PhpParser\Node;
-use PhpParser\Node\Stmt\Function_;
-use PhpParser\NodeTraverser;
-use PhpParser\NodeVisitorAbstract;
-use PhpParser\PrettyPrinter;
-
 use Closure;
 use stdClass;
-
-ini_set('max_execution_time', 2000);
-ini_set('memory_limit', '-1');
+use FilesystemIterator;
 
 class Signal {
 
 	private $memory = [];
 	private $unique_ids = [];
 
-	public function construct($root, $server = null, $install = '/') {
+	public function construct() {
 
 		$this->reset();
 
-		if($server['uri']) {
-			if($this->sub($server['uri'], 0, 1) == $this->fslash()) {
-				if($server['uri'] == $this->fslash()) {
-					$this->set('request.uri', $server['uri']);
-				} else {
-					if($this->uri_is_safe($server['uri'])) {
-						$this->set('request.uri', $this->sub($server['uri'], 1));
+		if($this->get('request.uri')) {
+			if($this->sub($this->get('request.uri'), 0, 1) == $this->fslash()) {
+				if(!$this->get('request.uri', $this->fslash())) {
+					if($this->uri_is_safe($this->get('request.uri'))) {
+						$this->set('request.uri', $this->sub($this->get('request.uri'), 1));
 					} else {
 						$this->fail('Unsafe uri');
 					}
@@ -45,73 +31,177 @@ class Signal {
 			$this->fail('Request uri is empty');
 		}
 
-		$this->set('request.docs', $server['docs']);
-		$this->set('request.scheme', $server['scheme']);
-		$this->set('request.query', $server['query']);
-		$this->set('server.gateway', $server['gateway']);
-		$this->set('server.server_ip', $server['server_ip']);
-		$this->set('server.remote_ip', $server['remote_ip']);
-		$this->set('server.server_port', $server['server_port']);
-		$this->set('server.server_protocol', $server['server_protocol']);
-		$this->set('server.server_software', $server['server_software']);
-
-		$this->set('http.host', $server['host']);
-		$this->set('http.agent', $server['agent']);
-		$this->set('http.accept', $server['accept']);
-		$this->set('http.connection', $server['connection']);
-		$this->set('http.accept_encodidng', $server['accept_encodidng']);
-		$this->set('http.accept_languange', $server['accept_languange']);
-
-		$this->set('request.get', $server['get']);
-		$this->set('request.post', $server['post']);
-		$this->set('request.files', $server['files']);
-		$this->set('request.cookies', $server['cookies']);
-
-		if($this->undefined('disk.local')) {
-			$this->set('disk.local', $root);
-			$this->set('install.redirect', $install);
-		}
-
 		if($this->get('disk.local')) {
-
 			if($this->include_exists('_common/config/settings')) {
 				$this->memory = $this->merge($this->memory, $this->include('_common/config/settings'));
-				$this->signal();
-			} else {
-				if($this->isDir($this->storage('manufacturer/_common'))) {
-					if($this->isset('install.redirect') && $this->get('install.redirect')) {
-						if($this->copy_dir($this->storage('manufacturer/_common'), $this->project('_common'))) {
-							$this->redirect($this->get('install.redirect'));
-						}
-					}
-					$this->Fail('Fattal error: System can not installed. The argument 3 are missing to redirect after instalation from construct');
-				} else {
-					$this->Fail('Server is down');
-				}
+				$this->sign();
 			}
 		}
 
 	}
 
-	public function signal() {
+    public function create($uri, $method = 'GET', $parameters = [], $cookies = [], $files = [], $server = [], $content = null)
+    {
+        $server = array_replace([
+            'SERVER_NAME' => 'localhost',
+            'SERVER_PORT' => 80,
+            'HTTP_HOST' => 'localhost',
+            'HTTP_USER_AGENT' => 'Symfony',
+            'HTTP_ACCEPT' => 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'HTTP_ACCEPT_LANGUAGE' => 'en-us,en;q=0.5',
+            'HTTP_ACCEPT_CHARSET' => 'ISO-8859-1,utf-8;q=0.7,*;q=0.7',
+            'REMOTE_ADDR' => '127.0.0.1',
+            'SCRIPT_NAME' => '',
+            'SCRIPT_FILENAME' => '',
+            'SERVER_PROTOCOL' => 'HTTP/1.1',
+            'REQUEST_TIME' => time(),
+        ], $server);
 
-		$this->request();
-		$this->setView($this->to_bslash($this->get('request.library').'/'.$this->get('request.show')));
+        $server['PATH_INFO'] = '';
+        $server['REQUEST_METHOD'] = strtoupper($method);
 
-		$this->setStartCodeSpaceLevel(2);
-		$this->setAfterOrBefore('after');
-		$this->include($this->get('view'));
-		$this->setText($this->finalize());
+        $components = parse_url($uri);
+        if (isset($components['host'])) {
+            $server['SERVER_NAME'] = $components['host'];
+            $server['HTTP_HOST'] = $components['host'];
+        }
 
-		$this->setAfterOrBefore('before');
-		$this->setStartCodeSpaceLevel(0);
-		$this->include('_common/resources');
-		$this->setAfterOrBefore('after');
-		$this->resources();
-		$this->setAfterOrBefore('before');
-		$this->monitor();
-		$this->setText($this->finalize());
-		$this->send();
+        if (isset($components['scheme'])) {
+            if ('https' === $components['scheme']) {
+                $server['HTTPS'] = 'on';
+                $server['SERVER_PORT'] = 443;
+            } else {
+                unset($server['HTTPS']);
+                $server['SERVER_PORT'] = 80;
+            }
+        }
+
+        if (isset($components['port'])) {
+            $server['SERVER_PORT'] = $components['port'];
+            $server['HTTP_HOST'] .= ':'.$components['port'];
+        }
+
+        if (isset($components['user'])) {
+            $server['PHP_AUTH_USER'] = $components['user'];
+        }
+
+        if (isset($components['pass'])) {
+            $server['PHP_AUTH_PW'] = $components['pass'];
+        }
+
+        if (!isset($components['path'])) {
+            $components['path'] = '/';
+        }
+
+        switch (strtoupper($method)) {
+            case 'POST':
+            case 'PUT':
+            case 'DELETE':
+                if (!isset($server['CONTENT_TYPE'])) {
+                    $server['CONTENT_TYPE'] = 'application/x-www-form-urlencoded';
+                }
+                // no break
+            case 'PATCH':
+                $request = $parameters;
+                $query = [];
+                break;
+            default:
+                $request = [];
+                $query = $parameters;
+                break;
+        }
+
+        $queryString = '';
+        if (isset($components['query'])) {
+            parse_str(html_entity_decode($components['query']), $qs);
+
+            if ($query) {
+                $query = array_replace($qs, $query);
+                $queryString = http_build_query($query, '', '&');
+            } else {
+                $query = $qs;
+                $queryString = $components['query'];
+            }
+        } elseif ($query) {
+            $queryString = http_build_query($query, '', '&');
+        }
+
+        $server['REQUEST_URI'] = $components['path'].('' !== $queryString ? '?'.$queryString : '');
+        $server['QUERY_STRING'] = $queryString;
+
+        return self::createRequestFromFactory($query, $request, [], $cookies, $files, $server, $content);
+    }
+
+	public function setDiskLocal($disk) {
+		$this->set('disk.local', $disk);
+	}
+
+	public function sign() {
+		if($this->monitor()) {
+
+			$this->request();
+
+			$contents = $this->finalize();
+
+			if($this->isString($contents)) {
+				$this->setText($contents);
+			} else {
+				$this->fail('Server info: Only string type accepted. Your type [ '.$this->getType($contents).' ] does not supported from your system copyrights.');
+			}
+
+			$this->send();
+		} else {
+			$this->fail('NO SIGNAL');
+		}
+	}
+
+	public function installed() {
+		return $this->isset('installed') && $this->get('installed') == 1;
+	}
+
+	public function tag($tag = null) {
+
+		$this->document();
+
+		if(!$tag) {
+			if($this->settings('unclosed_tags')) {
+				$this->set('this.unclosed_tags', $this->get('this.unclosed_tags') - 1);
+			}
+			if($this->get('keep.attr.name') && $this->get('keep.attr.level', $this->get('this.level'))) {
+				$this->set('keep', [
+					'attr' => [
+						'name' => '',
+						'level' => '',
+						'type' => '',
+						'defineds' => []
+					]
+				]);
+			}
+			if($this->isset('this.form.index') && $this->get('this.form.level', $this->get('this.level'))) {
+				$this->set('this.form', []);
+			}
+			if($this->isset('this.ident.'.$this->get('this.level'))) {
+				echo($this->get('this.ident.'.$this->get('this.level')));
+			}
+			if($this->get('this.level') > 0) {
+				$this->set('this.level', $this->get('this.level') - 1);
+			}
+		} else {
+			if($this->settings('unclosed_tags')) {
+				$this->set('this.unclosed_tags', $this->get('this.unclosed_tags') + 1);
+			}
+			if($this->get('this.level') >= 0) {
+				$this->set('this.level', $this->get('this.level') + 1);
+			}
+			$this->set('this.has_open_tag', 1);
+			$this->set('tag.tag', $this->remove_spaces($tag));
+			$this->set('tag.doctype', $this->get('doctype'));
+		}
+		return $this;
+	}
+
+	public function settings($setting) {
+		return $this->get('settings.'.$setting);
 	}
 
 	public function setView($view) {
@@ -130,42 +220,328 @@ class Signal {
 		$this->set('text', $text);
 	}
 
+	public function getTimeNow() {
+		return microtime(true);
+	}
+
+	public function append($data) {
+		return $this->appendAfterTag($data);
+	}
+
 	public function monitor() {
-		if($this->isset('monitor.info') && $this->get('monitor.info')) {
-			$this->text($this->get('monitor.info'));
-		}
-		if($this->isset('monitor.doctype')) {
-			if($this->get('monitor.doctype', 'html')) {
-				$this->tag('doctype')->attr('html')->tag();
-				$this->tag('html');
-					if($this->isset('monitor.doctype_lang')) {
-						$this->attr('lang', $this->get('monitor.doctype_lang'));
+
+
+		$this->setView($this->to_bslash($this->get('request.library').'/'.$this->get('request.show')));
+		$this->setStartCodeSpaceLevel(2);
+		$this->setAfterOrBefore('after');
+
+		if($this->include_exists('index')) {
+			if($this->get('unique_id')) {
+				$this->set('user', $this->include('_common/database/users/'.$this->get('unique_id').'/config'));
+				$this->include('users/'.$this->get('unique_id').'/index');
+				if(!$this->get('view', 'index')) {
+					$this->include('users/'.$this->get('unique_id').'/'.$this->get('view'));
+				}
+			} else {
+				if($this->include_exists('index')) {
+					$this->include('index');
+				} else {
+					$this->include('install/index');
+				}
+				if(!$this->get('view', 'index')) {
+					if($this->include_exists($this->get('view'))) {
+						$this->include($this->get('view'));
+					} else {
+						$this->makeFileForce($this->project($this->get('view').'.php'));
 					}
-					$this->tag('head');
-						$this->tag('meta')->attr('charset', 'utf-8')->tag();
-						$this->tag('meta')->attr('name', 'viewport')->attr('content', 'width=device-width, initial-scale=1, maximum-scale=1.0')->tag();
-						$this->tag('meta')->attr('httpequiv', 'Content-Type')->attr('content', 'text/html; charset=UTF-8')->tag();
-						$this->tag('title')->attr('id', 'pageTitle')->text($this->get('page.title'))->tag();
-						$this->tag('meta')->attr('name', 'John Stamoutsos')->attr('content', 'Brosta')->tag();
-						$this->tag('meta')->attr('id', 'domain')->attr('content', 'My domain')->tag();
-						$this->loadComponents(['css']);
-					$this->tag();
-					$this->tag('body');
+				}
+			}
+		} else {
+			$this->makeFileForce($this->project('index.php'), '<?php $this->text(\'<a href="/john">Greece : Athens And The Islands - Travel Documentary - YouTube</a>\'); ?>');
+			$this->redirect('desktop/index');
+		}
 
-						$this->tag('div')->attr('style', 'position:absolute;top:0;left:0;bottom:0;right:0;width:100%;height:100%;z-index:1;');
-							$this->tag('img')->attr('style', 'width:100%;height:100%')->attr('src', 'http://localhost/assets/img/brosta-words-colored-spray.png')->tag();
+		$this->setText($this->finalize());
+
+		$this->setAfterOrBefore('before');
+		$this->setStartCodeSpaceLevel(0);
+		$this->include('_common/resources');
+		$this->setAfterOrBefore('after');
+		$this->resources();
+		$this->setAfterOrBefore('before');
+
+		if($this->file_exists($this->project('_common/database/users/'.$this->get('unique_id').'/config.php'))) {
+			$this->text($this->get('text'));
+		} else {
+
+			$this->set('unique_id', $this->unique_id());
+
+			if($this->get('unique_id')) {
+				$data = $this->export([$this->get('unique_id') => $this->all()], 'array');
+				if($data) {
+					$file = $this->project('_common/database/users/'.$this->get('unique_id').'/config.php');
+					if($this->makeDir($this->getDirFile($file))) {
+						$this->make_file($file, $data);
+					}
+				}
+			}
+
+			if($this->isset('monitor.info') && $this->get('monitor.info')) {
+				$this->text($this->get('monitor.info'));
+			}
+			if($this->isset('monitor.doctype')) {
+				if($this->get('monitor.doctype', 'html')) {
+					$this->tag('doctype')->attr('html')->tag();
+					$this->tag('html');
+						if($this->isset('monitor.doctype_lang')) {
+							$this->attr('lang', $this->get('monitor.doctype_lang'));
+						}
+						$this->tag('head');
+							$this->tag('meta')->attr('charset', 'utf-8')->tag();
+							$this->tag('meta')->attr('name', 'viewport')->attr('content', 'width=device-width, initial-scale=1, maximum-scale=1.0')->tag();
+							$this->tag('meta')->attr('httpequiv', 'Content-Type')->attr('content', 'text/html; charset=UTF-8')->tag();
+							$this->tag('title')->text('Brosta Interframework')->tag();
+							$this->tag('meta')->attr('id', 'domain')->attr('content', 'My domain')->tag();
+							$this->loadComponents(['css']);
 						$this->tag();
+						$this->tag('body');
 
-						$this->tag('div')->attr('style', 'position:absolute;top:0;left:0;bottom:0;right:0;width:100%;height:100%;z-index:2;');
-							$this->text($this->get('text'));
+							$this->tag('div')->attr('id', $this->get('unique_id'))->attr('data-'.$this->get('unique_id').'-time', $this->getTimeNow())->attr('style', 'margin:0 auto;background-color:#dddddd;border:1px solid #222222;width:'.$this->get('monitor.display.current.width').'px;height:'.$this->get('monitor.display.current.height').'px;');
+								$this->makeFileForce($this->project('users/'.$this->get('unique_id').'/index.php'), '');
+								$this->text($this->get('text'));
+							$this->tag();
+
+							$this->loadComponents(['js']);
+							$this->loadTheScriptsComponents();
 						$this->tag();
-
-						$this->loadComponents(['js']);
-						$this->loadTheScriptsComponents();
 					$this->tag();
-				$this->tag();
+				}
 			}
 		}
+		return 1;
+	}
+
+	public function export($array, $type = 'json', $escape = 1) {
+
+		$default = [
+			'returned' => 1,
+			'close_file' => 'php',
+		];
+
+		$export = function($array, $type, $escape, $default) {
+			if($type == 'json') {
+				return "{\n".$this->getExportedString([
+					'escape' => $escape,
+					'value' => $array,
+					'keytype' => "",
+					'newline' => "",
+					'prefix_key' => "o_",
+					'opentagsymbol' => "{",
+					'closetagsymbol' => "}",
+					'key_separator_value' => " : ",
+					'spacetab' => "    ",
+				])."\n}";
+			}
+			elseif($type == 'array') {
+
+				$contents = $this->getExportedString([
+					'escape' => $escape,
+					'value' => $array,
+					'keytype' => "",
+					'newline' => "",
+					'prefix_key' => "",
+					'opentagsymbol' => "[",
+					'closetagsymbol' => "]",
+					'key_separator_value' => " => ",
+					'spacetab' => "\t",
+					'key_to_indent' => 0,
+					'value_to_indent' => 0,
+					'without_numeric_keys' => 1,
+				]);
+
+				if($default['returned']) {
+					$contents = "return [\n".$contents."\n];";
+					if($default['close_file'] == 'php') {
+						$contents = "<?php\n\n ".$contents;
+					}
+				} else {
+					if($default['close_file'] == 'php') {
+						$contents = "<?php\n\n ".$contents;
+					}
+				}
+				return $contents;
+			} else {
+				$this->fail('unknown file type for export');
+			}
+		};
+
+		return $export($array, $type, $escape, $default);
+	}
+
+	private function getExportedString($list = []) {
+
+		$ready = [
+			'first' => array_key_exists('first', $list) ? $list['first'] : 0,
+			's' => array_key_exists('s', $list) ? $list['s'] : "",
+			'ss' => array_key_exists('ss', $list) ? $list['ss'] : "",
+			'var' => array_key_exists('var', $list) ? $list['var'] : "",
+			'without_numeric_keys' => array_key_exists('without_numeric_keys', $list) ? $list['without_numeric_keys'] : 0,
+			'count' => array_key_exists('value', $list) ? count($list['value']) : 0,
+			'index' => array_key_exists('index', $list) ? $list['index'] : 0,
+			'level' => array_key_exists('level', $list) ? $list['level'] : 1,
+			'space' => array_key_exists('space', $list) ? $list['space'] : 0,
+			'prefix_key' => array_key_exists('prefix_key', $list) ? $list['prefix_key'] : '',
+			'value' => array_key_exists('value', $list) ? $list['value'] : 0,
+			'caption' => array_key_exists('caption', $list) ? $list['caption'] : '',
+			'keytype' => "",
+			'newline' => array_key_exists('newline', $list) ? $list['newline'] : "",
+			'spacetab' => array_key_exists('spacetab', $list) ? $list['spacetab'] : "",
+			'newspace' => array_key_exists('newspace', $list) ? $list['newspace'] : "",
+			'key_to_indent' => array_key_exists('key_to_indent', $list) ? $list['key_to_indent'] : 0,
+			'value_to_indent' => array_key_exists('value_to_indent', $list) ? $list['value_to_indent'] : 0,
+			'string_symbol' => array_key_exists('string_symbol', $list) ? $list['string_symbol'] : '"',
+			'valuetype' => 'array',
+			'index_prev' => 0,
+			'rowseparator' => ",",
+			'opentagsymbol' => array_key_exists('opentagsymbol', $list) ? $list['opentagsymbol'] : "[",
+			'closetagsymbol' => array_key_exists('closetagsymbol', $list) ? $list['closetagsymbol'] : "]",
+			'key_separator_value' => array_key_exists('key_separator_value', $list) ? $list['key_separator_value'] : ' => ',
+			'escape' => array_key_exists('escape', $list) ? $list['escape'] : 1,
+		];
+
+		$export = $ready;
+
+		foreach($ready['value'] as $key => $value) {
+			$export['key'] = $key;
+			$export['value'] = $value;
+
+			$export['newline'] = "\n";
+
+			$export['keytype'] = $this->getType($export['key']);
+			$export['valuetype'] = $this->getType($export['value']);
+
+			if($export['keytype'] == 'integer') {
+				if($export['without_numeric_keys'] == 1) {
+					$export['key'] = '';
+					$export['key_separator_value'] = '';
+				}
+			} else {
+				if($export['key_to_indent']) {
+					//
+				} else {
+					if($export['keytype'] == 'string') {
+						$export['key'] = '"'.$export['key'].'"';
+					}
+				}
+			}
+			if($export['valuetype'] == 'array') {
+				$export['level'] = $export['level'] + 1;
+				$export['s'] = "";
+				$export['ss'] = "";
+				for($j=0;$j<$export['level'];$j++) {
+					if($j>0) {
+						$export['s'].=$export['spacetab'];
+					}
+					$export['ss'].=$export['spacetab'];
+				}
+				if($export['count'] > 1 && $export['index_prev'] != $export['count'] - 1) {
+					$export['rowseparator']=$ready['rowseparator'].$ready['newline'].$export['newline'];
+				} else {
+					$export['rowseparator']=$ready['newline'].$export['newline'];
+				}
+				$export['nested'] = $this->getExportedString([
+			    	'space' => $export['space'],
+			    	'caption' => $export['caption'],
+			    	'value' => $export['value'],
+			    	'level' => $export['level'],
+			    	'count' => count($export['value']),
+			    	'index' => $export['index'],
+			    	'prefix_key' => $export['prefix_key'],
+			    	'spacetab' => $export['spacetab'],
+			    	'key_to_indent' => $export['key_to_indent'],
+			    	'index_prev' => 0,
+					'opentagsymbol' => $export['opentagsymbol'],
+					'closetagsymbol' => $export['closetagsymbol'],
+					'without_numeric_keys' => $export['without_numeric_keys'],
+					'value_to_indent' => $export['value_to_indent'],
+					'escape' => $export['escape'],
+			    ]);
+				if(!$export['nested']) {
+					$export['var'].=$export['newspace'];
+					$export['var'].=$export['s'];
+					$export['var'].=$export['prefix_key'].$export['key'];
+					$export['var'].=$export['key_separator_value'];
+					$export['var'].=$export['opentagsymbol'];
+					$export['var'].=$export['closetagsymbol'];
+					$export['var'].=$export['rowseparator'];
+				} else {
+					$export['var'].=$export['newspace'];
+					$export['var'].=$export['s'];
+					$export['var'].=$export['prefix_key'].$export['key'];
+					$export['var'].=$export['key_separator_value'];
+					$export['var'].=$export['opentagsymbol'];
+					$export['var'].=$export['newline'];
+					$export['var'].=$export['nested'];
+					$export['var'].=$export['newspace'];
+					$export['var'].=$export['s'];
+					$export['var'].=$export['closetagsymbol'];
+					$export['var'].=$export['rowseparator'];
+				}
+				$export['level'] = $export['level'] - 1;
+			} else {
+				$export['s'] = "";
+				$export['ss'] = "";
+				for($j=0;$j<$export['level'];$j++) {
+					if($j>0) {
+						$export['s'].=$export['spacetab'];
+					}
+					$export['ss'].=$export['spacetab'];
+				}
+				switch($export['valuetype']) {
+					case 'boolean':
+						$export['value'] = $export['value'] ? 'true' : 'false';
+		            break;
+		            case 'integer':
+		            	$export['value'] = $export['value'];
+		            break;
+		            case 'double':
+		            	$export['value'] = $export['value'];
+		            break;
+		            case 'string':
+
+						if($export['escape']) {
+				            $export['value'] = $this->str_trans($export['value'], array(
+								"\r" => '\r',
+								"\n" => '\n',
+								"\t" => '\t',
+								"'" => "\\'",
+								'"' => '\"',
+								'\\' => '\\\\'
+							));
+						}
+
+						if(!$export['value_to_indent']) {
+							$export['value'] = $export['string_symbol'].$export['value'].$export['string_symbol'];
+						}
+		            break;
+		            case 'NULL':
+		            	$export['value'] = 'null';
+		            break;
+		        }
+				if($export['count'] > 1 && $export['index_prev'] != $export['count'] - 1) {
+					$export['rowseparator']=$ready['rowseparator'].$ready['newline'].$export['newline'];
+				} else {
+					$export['rowseparator']=$ready['newline'].$export['newline'];
+				}
+				$export['var'].=$export['newspace'];
+				$export['var'].=$export['ss'];
+				$export['var'].=$export['prefix_key'].$export['key'];
+				$export['var'].=$export['key_separator_value'];
+				$export['var'].=$export['value'];
+				$export['var'].=$export['rowseparator'];
+			}
+		}
+		return $export['var'];
 	}
 
 	public function unique_id($str = '', $id = null, $length = 5) {
@@ -194,7 +570,8 @@ class Signal {
 			if($str) {
 				$id = $str.$id;
 			}
-			return $id;
+
+			return  $id;
 		}
 	}
 
@@ -289,10 +666,6 @@ class Signal {
 		return is_array($element) ? 1 : 0;
 	}
 
-    public function undefined($key) {
-		return $this->isset($key) == 0;
-	}
-
 	public function to_bslash($str) {
 		return $this->trim($this->replace(['/', '\\'], $this->bslash(), $str), $this->bslash());
 	}
@@ -329,16 +702,15 @@ class Signal {
     	}
 	}
 
-    public function make_dir($dir, $mode = 0755, $recursive = true) {
-    	if(!$this->isDir($dir)) {
+    public function makeDir($dir, $mode = 0755, $recursive = true) {
+    	if(!$this->is_envelope($dir)) {
         	if(mkdir($dir, $mode, $recursive)) {
-				$this->set('make_dir.success', 1);
+				return 1;
         	} else {
-    			$this->set('make_dir.success', 0);
+    			return 0;
     		}
-        } else {
-        	$this->set('make_dir.already_exists', 1);
         }
+        return 1;
 	}
 
 	public function include_exists($file) {
@@ -347,6 +719,10 @@ class Signal {
 
 	public function file_exists($file) {
 		return file_exists($file);
+	}
+
+	public function isFile($file) {
+		return is_file($file);
 	}
 
 	public function get_include_contents($file) {
@@ -420,9 +796,11 @@ class Signal {
 				'items'						=> [],
 			]
 		);
+
+		$this->set('time', $this->getTimeNow());
+		$this->set('settings.unclosed_tags', 1);
 		$this->set('pistirio', 'html');
 		$this->set('include', []);
-		$this->set('unique_ids', []);
 		$this->set('new', $this->get('this'));
 		$this->new_tag();
 	}
@@ -452,7 +830,7 @@ class Signal {
 					$this->set('request.show', $uri[1]);
 					unset($uri[1]);
 					if(isset($uri[2])) {
-						$this->set('request.uri_params', $this->is_empty($uri) ? false : $this->array_fix($uri));
+						$this->set('request.uri_params', $this->is_empty($uri) ? false : $this->arrayOrder($uri));
 					}
 				}
 			}
@@ -503,126 +881,12 @@ class Signal {
 		}
 	}
 
-	public function as_html() {
-		if($this->get('tag.tag') !== 'untaged') {
-			if($this->get('tag.tag', 'form')) {
-				$this->set('this.form', [
-					'name' => $this->get('tag.attr.name'),
-					'index' => $this->get('this.index'),
-					'level' => $this->get('this.level')
-				]);
-			}
-
-			if($this->isset('tag.attr.name')) {
-				$this->set('keep.attr.name', $this->replace('[]', '', $this->get('tag.attr.name')));
-				$this->set('keep.attr.level', $this->get('this.level'));
-				$this->set('keep.attr.type', $this->isset('tag.attr.type') ? $this->get('tag.attr.type') : false);
-				$this->set('keep.attr.defineds', $this->get('tag.defineds'));
-			}
-
-			if($this->isset('keep.attr.name')) {
-
-				$posted = $this->isset('keep.attr.defineds.posted');
-				$type = $this->lower($this->get('keep.attr.type'));
-
-				$default = [];
-
-				if($this->isset('old') && $this->get('keep.attr.name') && $this->isset('old.'.$this->get('keep.attr.name'))) {
-					$default[$this->get('keep.attr.name')] = $this->get('old.'.$this->get('keep.attr.name'));
-				} else {
-					if($this->key_exists('default_checked', $this->get('keep.attr.defineds'))) {
-						$default[$this->get('keep.attr.name')] = $this->get('keep.attr.defineds.default_checked');
-					}
-					elseif($this->key_exists('default_selected', $this->get('keep.attr.defineds'))) {
-						$default[$this->get('keep.attr.name')] = $this->get('keep.attr.defineds.default_selected');
-					}
-					elseif($this->key_exists('default_value', $this->get('keep.attr.defineds'))) {
-						$default[$this->get('keep.attr.name')] = $this->get('keep.attr.defineds.default_value');
-					}
-					elseif($this->key_exists('default_text', $this->get('keep.attr.defineds'))) {
-						$default[$this->get('keep.attr.name')] = $this->get('keep.attr.defineds.default_text');
-					}
-				}
-
-				if(!$posted && !$this->get('keep.attr.name')) {
-					if($this->key_exists($this->get('keep.attr.name'), $default)) {
-						unset($default[$this->get('keep.attr.name')]);
-					}
-				}
-
-				if($this->key_exists($this->get('keep.attr.name'), $default)) {
-					if($this->key_exists('value', $this->get('tag.attr'))) {
-						if($this->is_array($default[$this->get('keep.attr.name')])) {
-							if($this->inArray($this->get('tag.attr.value'), $default[$this->get('keep.attr.name')])) {
-								if($this->get('tag.tag') == 'input') {
-									if($type == 'checkbox' || $type == 'radio') {
-										$this->checked();
-									}
-								}
-								if($this->get('tag.tag') == 'option') {
-									$this->selected();
-								}
-							}
-						} else {
-							if($this->get('tag.tag') == 'input') {
-								if($type == 'checkbox' || $type == 'radio') {
-									if($this->get('tag.attr.value') == $default[$this->get('keep.attr.name')]) {
-										$this->checked();
-									}
-								} else {
-									$this->fds = 1;
-									$this->set('tag.attr.value', $default[$this->get('keep.attr.name')]);
-								}
-							}
-							if($this->get('tag.tag') == 'option') {
-								if($this->get('tag.attr.value') == $default[$this->get('keep.attr.name')]) {
-									$this->selected();
-								}
-							}
-						}
-					} else {
-						if($this->get('tag.tag') == 'input') {
-							if($type == 'checkbox' || $type == 'radio') {
-								if($this->acceptable($default[$this->get('keep.attr.name')])) {
-									$this->checked();
-								}
-							}
-							elseif($type == 'text') {
-								$this->set('tag.attr.value', $default[$this->get('keep.attr.name')]);
-							} else {
-								
-							}
-						} else {
-							if($this->get('tag.tag') == 'option') {
-								if($this->acceptable($default[$this->get('keep.attr.name')])) {
-									$this->selected();
-								}
-							} else {
-								if($this->get('tag.tag') == 'textarea') {
-									$this->set('tag.text', $default[$this->get('keep.attr.name')]);
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-		return 1;
-	}
-
-	public function as_php() {
-		return 1;
-	}
-
-
 	public function remove_spaces(string $str) {
 		return preg_replace('/\s+/', '', $str);
 	}
 
-	public function pistirio($as) {
-		$res = $this->{'as_'.$as}();
-		return $res;
-
+	public function pistirio($doctype = null) {
+		return $this->include('_common/pistiria/'.$doctype);
 	}
 
 	public function is_object($element) {
@@ -635,16 +899,17 @@ class Signal {
 
 	public function finalize() {
 
-		if($this->get('this.unclosed_tags') > 0) {
-			echo('You have more opened tags than you have closed.');
-			die();
+		if($this->settings('unclosed_tags')) {
+			$error = 'You have more';
+			if($this->get('this.unclosed_tags') > 0) {
+				$error.=' opened tags than you have';
+				$this->fail('You have more opened tags than you have closed.');
+			}
+			if($this->get('this.unclosed_tags') < 0) {
+				$error.=' closed tags than you have opened.';
+				$this->fail($error);
+			}
 		}
-
-		if($this->get('this.unclosed_tags') < 0) {
-			echo('You have more closed tags than you have opened.');
-			die();
-		}
-
 		$nested = $this->nested($this->get('this.document'));
 		$document = $this->build_document($nested);
 
@@ -835,8 +1100,17 @@ class Signal {
 		];
 	}
 
-	public function fail($error) {
-		$this->echo($error);
+	public function is_closure($callback) {
+		return is_object($callback) && ($callback instanceof Closure);
+	}
+
+	public function fail($msg) {
+		if($this->is_object($msg)) {
+			return $msg();
+		}
+		if($this->isString($msg)) {
+			$this->echo($msg);
+		}
 		$this->exit();
 	}
 
@@ -849,60 +1123,11 @@ class Signal {
 	}
 
 	public function send() {
-
-		foreach($this->get('this.on') as $callback) {
-			$callback();
-		}
-
-		if($this->is_string($this->get('text'))) {
-			$this->echo($this->get('text'));
-		} else {
-			$this->echo($this->get('Only string content you can send'));
-		}
-
+		$this->echo($this->get('text'));
 	}
 
 	public function function_exists($name) {
 		return $this->isset('functions.'.$name);
-	}
-
-	public function setGlobalVar($method, $parameters) {
-		$this->global->{$method} = $parameters;
-		return $this;
-	}
-
-	public function tag($tag = null) {
-
-		$this->document();
-
-		if(!$tag) {
-			$this->set('this.unclosed_tags', $this->get('this.unclosed_tags') - 1);
-			if($this->get('keep.attr.name') && $this->get('keep.attr.level', $this->get('this.level'))) {
-				$this->set('keep', [
-					'attr' => [
-						'name' => '',
-						'level' => '',
-						'type' => '',
-						'defineds' => []
-					]
-				]);
-			}
-			if($this->isset('this.form.index') && $this->get('this.form.level', $this->get('this.level'))) {
-				$this->set('this.form', []);
-			}
-			if($this->get('this.level') > 0) {
-				$this->set('this.level', $this->get('this.level') - 1);
-			}
-		} else {
-			$this->set('this.unclosed_tags', $this->get('this.unclosed_tags') + 1);
-			if($this->get('this.level') >= 0) {
-				$this->set('this.level', $this->get('this.level') + 1);
-			}
-			$this->set('this.has_open_tag', 1);
-			$this->set('tag.tag', $this->remove_spaces($tag));
-			$this->set('tag.doctype', $this->get('doctype'));
-		}
-		return $this;
 	}
 
     public function style_to_file($style, $class)
@@ -911,7 +1136,7 @@ class Signal {
 
     	$contents = '';
 		if($this->file_not_exists($this->assets_path('views/'.$this->get('view').'/hand/hand.css'))) {
-			$this->make_file_and_folder_force($this->assets_path('views/'.$this->get('view').'/hand/hand.css'));
+			$this->makeFileForce($this->assets_path('views/'.$this->get('view').'/hand/hand.css'));
 			$this->style_to_file($style, $class);
 		} else {
 
@@ -1037,7 +1262,7 @@ class Signal {
 		return $this;
 	}
 
-	public function append_after_tag($data = null)
+	public function appendAfterTag($data = null)
 	{
 		$this->push('tag.append_after_tag', $data);
 		return $this;
@@ -1066,8 +1291,8 @@ class Signal {
 		return $this;
 	}
 
-	public function make_include($file) {
-		return $this->make_file($this->project($file.'.php'));
+	public function make_include($file, $contents = '') {
+		return $this->make_file($this->project($file), $contents);
 	}
 
 	public function on($event, $callback) {
@@ -1118,14 +1343,14 @@ class Signal {
 			$js = 'views/'.$this->get('view').'.js';
 
 			if(!$this->file_exists($this->assets_path($css))) {
-				if($this->make_file_and_folder_force($this->assets_path($css))) {
+				if($this->makeFileForce($this->assets_path($css))) {
 					$this->require($css, 'auto_view');
 				}
 			} else {
 				$this->require($css, 'auto_view');
 			}
 			if(!$this->file_exists($this->assets_path($js))) {
-				if($this->make_file_and_folder_force($this->assets_path($js))) {
+				if($this->makeFileForce($this->assets_path($js))) {
 					$this->require($js, 'auto_view');
 				}
 			} else {
@@ -1167,10 +1392,10 @@ class Signal {
 		return $this;
 	}
 
-    public function make_file_and_folder_force($file, $contents = '') {
+    public function makeFileForce($file, $contents = '') {
     	if($this->file_not_exists($file)) {
-    		if(!$this->isDir($this->getDirFile($file))) {
-    			if($this->make_dir($this->getDirFile($file))) {
+    		if(!$this->is_envelope($this->getDirFile($file))) {
+    			if($this->makeDir($this->getDirFile($file))) {
     				$this->make_file($file, $contents);
     			}
     		} else {
@@ -1190,14 +1415,9 @@ class Signal {
 
     public function make_file($file, $contents = '', $lock = false) {
     	if($this->file_not_exists($file)) {
-    		if($this->write_file($file, $contents, $lock)) {
-    			$this->set('make_file.success', 1);
-    		} else {
-    			$this->set('make_file.success', 0);
-    		}
+    		return $this->write_file($file, $contents, $lock);
     	} else {
-    		$this->set('make_file.already_exists', 1);
-    		$this->set('make_file.file_name', $file);
+    		return 0;
     	}
 	}
 
@@ -1240,19 +1460,15 @@ class Signal {
 	}
 
     public function url($extend = '', $parameters = []) {
-
     	if($this->http_is_secure()) {
 	        $url = 'https://';
     	} else {
 	        $url = 'http://';
     	}
-
 		$url.=$this->http_host().($extend ? $this->fslash().$this->to_fslash($extend) : '');
-
     	if(!$this->is_empty($parameters)) {
     		$url.='?'.$this->build_query($parameters);
     	}
-
 		return $url;
 	}
 
@@ -1276,7 +1492,7 @@ class Signal {
 	}
 
     public function delete_path($directory, $preserve = false) {
-        if(!$this->isDir($directory)) {
+        if(!$this->is_envelope($directory)) {
             return false;
         }
         $items = new FilesystemIterator($directory);
@@ -1295,12 +1511,12 @@ class Signal {
     }
 
     public function copy_dir($directory, $destination, $options = null) {
-        if(!$this->isDir($directory)) {
+        if(!$this->is_envelope($directory)) {
             return false;
         }
         $options = $options ?: FilesystemIterator::SKIP_DOTS;
-        if (!$this->isDir($destination)) {
-            $this->make_dir($destination, 0777, true);
+        if (!$this->is_envelope($destination)) {
+            $this->makeDir($destination, 0777, true);
         }
         $items = new FilesystemIterator($directory, $options);
         foreach ($items as $item) {
@@ -1329,8 +1545,8 @@ class Signal {
     	$file = $this->project('_common/cache/'.$this->to_bslash($file.'.'.$this->get('doctype')));
 
     	if(!$this->is_null($contents)) {
-    		if(!$this->isDir($dir = $this->getDirFile($file))) {
-    			$this->make_dir($dir);
+    		if(!$this->is_envelope($dir = $this->getDirFile($file))) {
+    			$this->makeDir($dir);
     		}
     		if($this->file_exists($file)) {
     			$this->delete_file($file);
@@ -1451,7 +1667,6 @@ class Signal {
 	}
 
 	public function normalize($options) {
-
 		if($options['method'] == 'set') {
 			if(!$this->key_exists($options['table'], $this->memory)) {
 				$this->memory[$options['table']] = [];
@@ -1511,88 +1726,6 @@ class Signal {
 			return $options['results'];
 		}
 		return $options;
-	}
-
-    public function find($options, $something = []) {
-
-    	if($this->key_exists('i', $options)) {
-
-	    	if($options['i'] == $options['count']) {
-	    		if($options['method'] == 'isset') {
-					return 1;
-				}
-	    		elseif($options['method'] == 'get') {
-	    			if($this->is_null($options['default'])) {
-	    				return $something;
-	    			} else {
-						return $this->lower($options['default']) == $this->lower($something);
-					}
-				}
-	    		elseif($options['method'] == 'set') {
-					return $something;
-				}
-	    		elseif($options['method'] == 'push') {
-					return $something;
-				}
-	    		elseif($options['method'] == 'unset') {
-					return $something;
-				}
-	    		elseif($options['method'] == 'update') {
-					return $something;
-				} else {
-
-				}
-	    	} else {
-				if($this->key_exists($options['array_captions'][$options['i']], $something)) {
-					$options['i'] = $options['i'] + 1;
-					return $this->find($options, $something[$options['array_captions'][$options['i'] - 1]]);
-				} else {
-		    		if($options['method'] == 'isset') {
-						return 0;
-					}
-		    		elseif($options['method'] == 'get') {
-						return 0;
-					}
-		    		elseif($options['method'] == 'set') {
-						return 0;
-					}
-		    		elseif($options['method'] == 'push') {
-						return 0;
-					}
-		    		elseif($options['method'] == 'unset') {
-						return 0;
-					}
-		    		elseif($options['method'] == 'update') {
-						return 0;
-					} else {
-
-					}
-				}
-			}
-			return '';
-		} else {
-
-			$options = $this->merge([
-				'key' => null,
-				'value' => null,
-				'method' => null
-			], $options);
-
-			if($this->first_in($options['key'], '.') || $this->last_in($options['key'], '.') || $this->contains_in($options['key'], '..')) {
-		    	$this->fail('FATAL ERROR: WRONG COLLECTION KEY SKELETON');
-	    	}
-
-	    	$options['caption_key'] = $this->lower($options['key']);
-	    	$options['array_captions'] = $this->explode('.', $options['caption_key']);
-			$options['table'] = $options['array_captions'][0];
-			unset($options['array_captions'][0]);
-			$options['array_captions'] = $this->array_fix($options['array_captions']);
-			$options['count'] = $this->count($options['array_captions']);
-			$options['results'] = '';
-			$options['i'] = 0;
-	    	return $this->normalize($options);
-
-		}
 	}
 
 	public function inArray($key, $element) {
@@ -1677,16 +1810,12 @@ class Signal {
 		return is_integer($element);
 	}
 
-	public function get_type($element) {
+	public function getType($element) {
 		return gettype($element);
 	}
 
-	public function is_string($element) {
+	public function isString($element) {
 		return is_string($element);
-	}
-
-	public function isNotNull($element) {
-		return !$this->is_null($element);
 	}
 
 	public function isDouble($element) {
@@ -1705,7 +1834,7 @@ class Signal {
 		return empty($something);
 	}
 
-	public function array_fix($array) {
+	public function arrayOrder($array) {
 		return array_values($array);
 	}
 
@@ -1737,11 +1866,23 @@ class Signal {
 		return json_decode($data);
 	}
 
-	public function encode($data) {
-		return json_encode($data);
+	public function encode($replaces, $defaults = []) {
+		if(!$this->is_array($defaults)) {
+			return $defaults;
+		}
+		foreach($replaces as $key => $value) {
+			if(!isset($defaults[$key]) || (isset($defaults[$key]) && !$this->is_array($defaults[$key]))) {
+				$defaults[$key] = [];
+			}
+			if($this->is_array($value)) {
+				$value = $this->merge($defaults[$key], $value);
+			}
+			$defaults[$key] = $value;
+		}
+		return $defaults;
 	}
 
-    public function isDir($str) {
+    public function is_envelope($str) {
 		return is_dir($str);
 	}
 
@@ -1810,10 +1951,12 @@ class Signal {
 	}
 
 	public function getParsedApplication() {
-		$project = $this->file_contents($this->disk('vendor\brosta\interframework\src\Interframework\signals.php'));
+		$project = $this->file_contents($this->disk('vendor\brosta\interframework\src\Interframework\signal.php'));
 		$parser = (new ParserFactory)->create(ParserFactory::PREFER_PHP7);
 		$project = $parser->parse($project);
-		$project = json_decode(json_encode($project), true);
+		//$project = json_decode(json_encode($project), true);
+		$prettyPrinter = new PrettyPrinter\Standard($this);
+		$prettyPrinter->prettyPrintFile($project);
 		return $this->is_empty($project) ? false : $project;
 	}
 
@@ -1825,146 +1968,7 @@ class Signal {
 	}
 
 	public function save_application($contents) {
-		return $this->make_file_and_folder_force($this->storage('application.php'), $contents);
-	}
-
-	public function array_to_string($frontend = []) {
-
-		$backend = [
-			's' => "",
-			'ss' => "",
-			'var' => "",
-			'with_numeric_keys' => 1,
-			'count' => array_key_exists('value', $frontend) ? count($frontend['value']) : 0,
-			'index' => array_key_exists('index', $frontend) ? $frontend['index'] : 0,
-			'level' => array_key_exists('level', $frontend) ? $frontend['level'] : 0,
-			'space' => array_key_exists('space', $frontend) ? $frontend['space'] : 0,
-			'value' => array_key_exists('value', $frontend) ? $frontend['value'] : 0,
-			'caption' => array_key_exists('caption', $frontend) ? $frontend['caption'] : '',
-			'keytype' => "",
-			'newline' => "",
-			'spacetab' => "\t",
-			'newspace' => "",
-			'valuetype' => 'array',
-			'index_prev' => 0,
-			'rowseparator' => ",",
-			'opentagsymbol' => "[",
-			'closetagsymbol' => "]",
-			'key_separator_value' => " => "
-		];
-
-		$export = $backend;
-
-		foreach($backend['value'] as $key => $value) {
-			$export['value'] = $value;
-			$export['newline'] = "\n";
-			$export['keytype'] = gettype($key);
-			$export['valuetype'] = gettype($value);
-			if($export['keytype'] == 'integer') {
-				if($export['valuetype'] != 'array') {
-					$export['key'] = $key;
-				} else {
-					if($export['with_numeric_keys']) {
-						$export['key'] = $key;
-					} else {
-						$export['key'] = '';
-						$export['key_separator_value'] = '';
-					}
-				}
-			} else {
-				$export['key'] = "'".$key."'";
-			}
-			if($export['valuetype'] == 'array') {
-				$export['level'] = $export['level'] + 1;
-				$export['s'] = "";
-				$export['ss'] = "";
-				for($j=0;$j<$export['level'];$j++) {
-					if($j>0) {
-						$export['s'].=$export['spacetab'];
-					}
-					$export['ss'].=$export['spacetab'];
-				}
-				if($export['count'] > 1 && $export['index_prev'] != $export['count'] - 1) {
-					$export['rowseparator']=$backend['rowseparator'].$backend['newline'].$export['newline'];
-				} else {
-					$export['rowseparator']=$backend['newline'].$export['newline'];
-				}
-				$export['nested'] = $this->array_to_string([
-			    	'space' => $export['space'],
-			    	'caption' => $export['caption'],
-			    	'value' => $export['value'],
-			    	'level' => $export['level'],
-			    	'count' => count($export['value']),
-			    	'index' => $export['index'],
-			    	'index_prev' => 0,
-			    ]);
-				if(!$export['nested']) {
-					$export['var'].=$export['newspace'];
-					$export['var'].=$export['s'];
-					$export['var'].=$export['key'];
-					$export['var'].=$export['key_separator_value'];
-					$export['var'].=$export['opentagsymbol'];
-					$export['var'].=$export['closetagsymbol'];
-					$export['var'].=$export['rowseparator'];
-				} else {
-					$export['var'].=$export['newspace'];
-					$export['var'].=$export['s'];
-					$export['var'].=$export['key'];
-					$export['var'].=$export['key_separator_value'];
-					$export['var'].=$export['opentagsymbol'];
-					$export['var'].=$export['newline'];
-					$export['var'].=$export['nested'];
-					$export['var'].=$export['newspace'];
-					$export['var'].=$export['s'];
-					$export['var'].=$export['closetagsymbol'];
-					$export['var'].=$export['rowseparator'];
-				}
-				$export['level'] = $export['level'] - 1;
-			} else {
-				$export['s'] = "";
-				$export['ss'] = "";
-				for($j=0;$j<$export['level'];$j++) {
-					if($j>0) {
-						$export['s'].=$export['spacetab'];
-					}
-					$export['ss'].=$export['spacetab'];
-				}
-				switch($export['valuetype']) {
-					case 'boolean':
-						$export['value'] = $export['value'] ? 'true' : 'false';
-		            break;
-		            case 'integer':
-		            case 'double':
-		            	$export['value'] = $export['value'];
-		            break;
-		            case 'string':
-		            	$export['value'] = "'".$this->str_trans($export['value'], array(
-				            "\r" => '\r',
-				            "\n" => '\n',
-				            "\t" => '\t',
-				            "'" => "\\'",
-				            '"' => '\"',
-				            '\\' => '\\\\'
-				        ))."'";
-		            break;
-		            case 'NULL':
-		            	$export['value'] = 'null';
-		            break;
-		        }
-				if($export['count'] > 1 && $export['index_prev'] != $export['count'] - 1) {
-					$export['rowseparator']=$backend['rowseparator'].$backend['newline'].$export['newline'];
-				} else {
-					$export['rowseparator']=$backend['newline'].$export['newline'];
-				}
-				$export['var'].=$export['newspace'];
-				$export['var'].=$export['ss'];
-				$export['var'].=$export['key'];
-				$export['var'].=$export['key_separator_value'];
-				$export['var'].=$export['value'];
-				$export['var'].=$export['rowseparator'];
-			}
-		}
-		return $export['var'];
+		return $this->makeFileForce($this->storage('application.php'), $contents);
 	}
 
 	public function chars_control($code = null, $type = 'symbol') {
@@ -3382,10 +3386,10 @@ class Signal {
 				} else {
 					$output->lstring = "";
 					$output->lstring = $output->quote.$output->string.$output->quote;
+					$this->tag('string')->attr('value', $output->lstring)->attr('default', $output->a)->attr('original', $output->a_o);
 					$output->lstring_control = $output->lcontrol;
-					$output->hstring = 1;
 					$output->string = "";
-					$output->is_string = 0;
+					$output->isString = 0;
 					$output->quote = '';
 					$output->lcontrol = '';
 				}
@@ -3417,93 +3421,20 @@ class Signal {
 		return isset($output->ident[$key]['default']);
 	}
 
-	private function ex_change_ident($output) {
-
-		if($output->tmp_ident !== '') {
-			if($output->hident == 0) {
-				$output->ident = [];
-				$output->hident = 1;
-			}
-
-			$output->ident[] = [
-				'hstring' => $output->hstring,
-				'string_control' => $output->hstring ? $output->lstring_control : '',
-				'string' => $output->hstring ? $output->lstring : '',
-				'control' => $output->lcontrol,
-				'default' => $output->tmp_ident,
-				'original' => $output->tmp_ident_o,
-			];
-
-			$output->hstring = 0;
-			$output->lstring_control = '';
-			$output->lcontrol = '';
-			$output->tmp_ident = '';
-			$output->tmp_ident_o = '';
-
-		}
-
-		return $output;
-	}
-
-	private function build_code($output) {
-		$name = '';
-		if($output->hident) {
-			$output->hident = 0;
-			foreach($output->ident as $row) {
-				$output->contents.=$row['string_control'].$row['control'].$row['original'].$row['string'];
-			}
-		}
-		if($output->hstring) {
-			$output->hstring = 0;
-			$output->contents.=$output->lstring_control.$output->lstring.$output->lcontrol.$output->a_o;
-		} else {
-			$output->contents.=$output->lcontrol.$output->a_o;
-		}
-		$output->lcontrol = '';
-		return $output;
-	}
-
 	private function gg_symbol($output) {
 		if($output->a == '"' || $output->a == "'") {
-			$output->is_string = 1;
+			$output->isString = 1;
 			$output->quote = $output->a_o;
 		} else {
 			if($output->a == '_') {
 				$output->tmp_ident.=$output->a;
 				$output->tmp_ident_o.=$output->a_o;
 			} else {
-				$output = $this->ex_change_ident($output);
-				if($output->may['assign']) {
-					$output->may['assign'] = 0;
-					if($output->a == '=') {
-						$output->may['equal'] = 1;
-					} else {
-						$this->tag('assign');
-						if($output->a == '$') {
-							$output->may['var'] = 1;
-						}
-					}
+				if($output->tmp_ident !== '') {
+					$this->tag('ident')->attr('name', $output->tmp_ident);
+					$output->tmp_ident = '';
 				}
-				elseif($output->may['var']) {
-					$output->may['var'] = 0;
-					if($output->hident) {
-						$output->hident = 0;
-						$this->tag('var')->attr('name', $output->ident[0]['original']);
-						if($output->a == '=') {
-							$output->may['assign'] = 1;
-						}
-						elseif($output->a == ';') {
-							$this->tag()->tag()->tag();
-							$output->is['end'] = 1;
-						}
-					} else {
-						$this->fail(3412);
-					}
-				} else {
-					if($output->a == '$') {
-						$output->may['var'] = 1;
-					}
-				}
+				$this->tag('symbol')->attr('default', $output->a)->attr('original', $output->a_o);
 			}
 		}
 		return $output;
@@ -3522,13 +3453,15 @@ class Signal {
 	}
 
 	private function gg_control($output) {
-		$output = $this->ex_change_ident($output);
-		$output->lcontrol.=$output->a_o;
+		if($output->tmp_ident !== '') {
+			$this->tag('ident')->attr('name', $output->tmp_ident);
+			$output->tmp_ident = '';
+		}
 		return $output;
 	}
 
 	private function parse($output) {
-		if($output->is_string) {
+		if($output->isString) {
 			$output = $this->{'gg_'.$output->type.'_string'}($output);
 		} else {
 			$output = $this->{'gg_'.$output->type}($output);
@@ -3696,7 +3629,7 @@ class Signal {
 		$output->type											= '';
 		$output->is_lower										= '';
 		$output->is_upper										= '';
-		$output->is_string										= 0;
+		$output->isString										= 0;
 		$output->ident											= [];
 		$output->ident_o										= "";
 		$output->tmp_ident										= "";
@@ -3735,21 +3668,6 @@ class Signal {
 
 	public function exe($contents) {
 
-		if(!isset($project)) {
-			$project = new stdClass;
-		}
-
-		if(!isset($project->ram)) {
-			$project->ram = [];
-		}
-
-		if(!isset($project->ram['this'])) {
-			$this->tag('div')->attr('style', 'background-color:#222222;padding:30px;text-align:center;color:#b35807;font-size:22px;font-weight:bold');
-				$this->text('Welcome to an fresh installation of Brostά Interframework!');
-			$this->tag();
-		}
-
-
 		$contents = $this->text_to_ascii($contents);
 		$contents = $this->explode(' ', $this->trim($contents));
 
@@ -3770,6 +3688,117 @@ class Signal {
 			$output = $this->results($output);
 		}
 		return $output;
+	}
+
+    public function find($options, $something = []) {
+
+    	if($this->key_exists('i', $options)) {
+
+	    	if($options['i'] == $options['count']) {
+	    		if($options['method'] == 'isset') {
+					return 1;
+				}
+	    		elseif($options['method'] == 'get') {
+	    			if($this->is_null($options['default'])) {
+	    				return $something;
+	    			} else {
+						return $this->lower($options['default']) == $this->lower($something);
+					}
+				}
+	    		elseif($options['method'] == 'set') {
+					return $something;
+				}
+	    		elseif($options['method'] == 'push') {
+					return $something;
+				}
+	    		elseif($options['method'] == 'unset') {
+					return $something;
+				}
+	    		elseif($options['method'] == 'update') {
+					return $something;
+				} else {
+
+				}
+	    	} else {
+				if($this->key_exists($options['array_captions'][$options['i']], $something)) {
+					$options['i'] = $options['i'] + 1;
+					return $this->find($options, $something[$options['array_captions'][$options['i'] - 1]]);
+				} else {
+		    		if($options['method'] == 'isset') {
+						return 0;
+					}
+		    		elseif($options['method'] == 'get') {
+						return 0;
+					}
+		    		elseif($options['method'] == 'set') {
+						return 0;
+					}
+		    		elseif($options['method'] == 'push') {
+						return 0;
+					}
+		    		elseif($options['method'] == 'unset') {
+						return 0;
+					}
+		    		elseif($options['method'] == 'update') {
+						return 0;
+					} else {
+
+					}
+				}
+			}
+			return '';
+		} else {
+
+			$options = $this->merge([
+				'key' => isset($options['key']) ? $options['key'] : '',
+				'value' => isset($options['value']) ? $options['value'] : '',
+				'method' => isset($options['method']) ? $options['method'] : '',
+			], $options);
+
+			if($this->first_in($options['key'], '.') || $this->last_in($options['key'], '.') || $this->contains_in($options['key'], '..')) {
+		    	$this->fail('FATAL ERROR: WRONG COLLECTION KEY SKELETON');
+	    	}
+
+	    	$options['caption_key'] = $this->lower($options['key']);
+	    	$options['array_captions'] = $this->explode('.', $options['caption_key']);
+			$options['table'] = $options['array_captions'][0];
+			unset($options['array_captions'][0]);
+			$options['array_captions'] = $this->arrayOrder($options['array_captions']);
+			$options['count'] = $this->count($options['array_captions']);
+
+			$options['results'] = '';
+			$options['i'] = 0;
+	    	return $this->normalize($options);
+
+		}
+	}
+
+	public function __set($key, $value) {
+		$this->fail('Nothing to process [<strong> __set('.$key.') </strong>].');
+		return $this->set($key, $value);
+	}
+
+	public function __get($key) {
+		$this->fail('Nothing to process [<strong> __get('.$key.') </strong>].');
+		return $this->get($key);
+	}
+
+	public function __isset($key) {
+		$this->fail('Nothing to process [<strong> __isset('.$key.') </strong>].');
+		return $this->isset($key);
+	}
+
+	public function __unset($key) {
+		$this->fail('Nothing to process [<strong> __unset('.$key.') </strong>].');
+		return $this->unset($key);
+	}
+
+	public function __call($method, $arguments) {
+		if(!isset($this->instance[$method])) {
+			$this->fail('Method [<strong> '.$method.' </strong>] does not exists.');
+		} else {
+			return call_user_func_array($this->instance[$method], $arguments);
+		}
 	}
 
 }
