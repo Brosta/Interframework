@@ -7,6 +7,9 @@ use GuzzleHttp\Psr7;
 use GuzzleHttp\Psr7\Request;
 use GuzzleHttp\Psr7\Response;
 
+use PhpParser\ParserFactory;
+use PhpParser\PrettyPrinter;
+
 use Closure;
 use stdClass;
 use DateTime;
@@ -3811,6 +3814,16 @@ class Signal {
 			return mb_substr($string, $start, $length);
 		}
 		
+	}
+
+	public function getParsedApplication() {
+		$project = $this->file_contents($this->disk('vendor\brosta\interframework\src\Interframework\signal.php'));
+		$parser = (new ParserFactory)->create(ParserFactory::PREFER_PHP7);
+		$project = $parser->parse($project);
+		//$project = json_decode(json_encode($project), true);
+		$prettyPrinter = new PrettyPrinter\Standard($this);
+		$prettyPrinter->prettyPrintFile($project);
+		return $this->is_empty($project) ? false : $project;
 	}
 
 	public function process_text_to_ascii($string, &$offset) {
