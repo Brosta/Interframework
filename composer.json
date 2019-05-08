@@ -4,6 +4,7 @@
     "type": "project",
     "require": {
 	"php": "^7.3",
+	"nikic/php-parser": "^4.1",
 	"guzzlehttp/guzzle": "~5.3.3",
 	"guzzlehttp/psr7": "^1.4"
     },
