@@ -4,10 +4,9 @@
     "type": "project",
     "require": {
 	"php": "^7.3",
-	"guzzlehttp/guzzle": "~6.0",
-	"guzzlehttp/psr7": "^1.4"
     },
     "autoload": {
+	"files": ["src/interframework/Helpers.php"],
         "psr-4": {
             "Brosta\\": "src/interframework/"
         }
