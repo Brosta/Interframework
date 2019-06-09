@@ -3,7 +3,7 @@
     "description": "Brosta Interframework",
     "type": "project",
     "require": {
-	"php": "^7.3",
+	"php": "^7.3"
     },
     "autoload": {
 	"files": ["src/interframework/Helpers.php"],
