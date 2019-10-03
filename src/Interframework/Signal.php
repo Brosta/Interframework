@@ -234,7 +234,7 @@ class Signal {
 			$external = $this->_brosta_encode($external);
 			$external = $this->_brosta_decode($external);
 		} else {
-			$external = $external;
+			//
 		}
 
 		if($external) {
