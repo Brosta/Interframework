@@ -1,59 +1,201 @@
 <?php
 
+namespace Brosta\Interframework;
+
+use Closure;
+use stdClass;
+use DateTime;
+use DateTimeZone;
+use ReflectionClass;
+use GuzzleHttp\Psr7\Response;
+use GuzzleHttp\Cookie\CookieJar;
+use Brosta\Interframework\Manager;
+
 define('LICENSE_ID', 'UZ3I-J2MB-9WXC-IXRT-KDL2');
 define('NOTHING', '60371014510810961621243511712512340101105');
 
 class Signal {
 
-	private $_file_ext = '.php';
-	private $_is_init;
-	private $_valve = 'guest';
-	private $_algorithm_separator = ',';
+	public $key = 'public';
 
-	private $_ram = [
-		'guest' => [],
-	];
-
-	public function _start(string $location = '') {
-
-		if(!$this->_is_started()) {
-
-			// Set system ram
-			$this->_reset_ram($location);
-
-			// Set the first load client ini
-			$options = $this->_set_start_ini([
-				'with_local' => 1,
-				'with_router' => 1,
-				'with_controller' => 1,
-				'with_vendor' => 1,
-				'with_view' => 1,
-			]);
-
-			// Load the providers management
-			if($this->_ini('with_vendor')) {
-				$this->_vendor_ready() ? $this->_module('vendor.composer') : $this->_fail('with_vendor', 'can not be load');
-			}
-
-			if($this->_ini('request_from_globals')) {
-				// Create request from the global vars
-				$this->_request_from_globals();
-				// ----------------------------
-			} else {
-				// Create request from the system vars
-				$this->_request_from_local();
-				// ----------------------------
-			}
-
+	protected function _start(string $location, $default) {
+		if($this->_reset_ram($location, $default)) {
+			$this->_router();
+			$this->_stop();
 		}
-
-		// set default controller, method, params
-		$this->_router();
-
-		$this->_stop();
 	}
 
-	private function _startup($closures) {
+	protected function _app_body($data, $attrs, $type) {
+		
+	}
+
+	protected function _build_application($data, $attrs, $type) {
+		$ram = $this->_ram;
+
+		$this->_doctype($this->_get('app.code'));
+		$this->_set_start_code_space_level($this->_get('app.start_code_space_level'));
+
+		$as_helper = isset($data['as_helper']) && $data['as_helper'] == 1;
+
+		if($data['in_namespace']) {
+			if(!$as_helper) {
+				$this->_tag('namespace')->_attr('name', $this->_get('app.namespace'));
+				$this->_fixed_space(-1);
+				$this->_enter();
+			}
+		}
+
+		if($data['in_class']) {
+			if(!$as_helper) {
+				$this->_tag('class')->_attr('name', $this->_get('app.name'));
+			}
+		}
+
+		foreach($data['methods'] as $m) {
+			if($as_helper && $m['visibility'] !== 'public') {
+				continue;
+			}
+
+			if($m['visibility'] == 'public') {
+				$this->_tag('function');
+				foreach($attrs as $name) {
+					if($name == 'body') {
+						$m[$name] = $this->_ascii_to_text($m[$name]);
+						if($type == 'javascript') {
+							$m[$name] = $this->_replace('$this->_', '', $m[$name]);
+						}
+						elseif($type == 'php') {
+							$m[$name] = $this->_replace('$this->_', '$this->', $m[$name]);
+						}
+					}
+					elseif($name == 'arguments') {
+						if($type == 'javascript') {
+							//
+						}
+						elseif($type == 'php') {
+							//
+						}
+					}
+					elseif($name == 'name') {
+						
+					}
+					$this->_attr($name, $m[$name]);
+				}
+				$this->_tag();
+				$this->_enter();
+			}
+		}
+
+		if($data['in_namespace']) {
+			if(!$as_helper) {
+				$this->_tag();
+			}
+		}
+
+		if($data['in_class']) {
+			if(!$as_helper) {
+				$this->_tag();
+			}
+		}
+
+		if($results = $this->_final()) {
+			$this->_ram = $ram;
+
+			if($type == 'php') {
+				$results = '<?php'.$this->_new_line().$results.$this->_new_line().'?>';
+			}
+
+			return $results;
+		}
+		return $this->_fatal('build', 'Can not create application');
+	}
+
+	protected function _stop() {
+
+		if(!$this->_include_exists('_common/versions/'.$this->_doctype().'/aplication_'.$this->_dot_to_underscore($this->_get('app.version')))) {
+			$this->_make_include('_common/versions/'.$this->_doctype().'/aplication_'.$this->_dot_to_underscore($this->_get('app.version')), $this->_build_application($this->_class_to_array('Brosta\Interframework\Signal'), ['name', 'arguments', 'body'], 'php'));
+		}
+
+		if($this->_set('static.system.ready', 1)) {
+			if($this->_ini('helpers')) {
+				if(!$this->_file($this->_boot_path('helpers.php'))) {
+					$app = $this->_class_to_array('Brosta\Interframework\Signal');
+					sort($app['methods']);
+					$app['as_helper'] = 1;
+					$app['in_class'] = 0;
+					$app['in_namespace'] = 0;
+					$this->_mkdirs([
+						[
+							'name' => $this->_boot_path(),
+							'files' => [
+								[
+									'name' => 'helpers.php',
+									'contents' => '<?php'.$this->_new_line().$this->_new_line().'use Brosta\Interframework\Manager;'.$this->_new_line().$this->_build_application($app, ['name', 'arguments'], 'php').$this->_new_line().'?>'
+								]
+							]
+						]
+					]);
+				} else {
+					$this->_require_local($this->_boot_path('helpers.php'), null);
+				}
+			}
+			if(!$this->_ini('safe_mode')) {
+				if(!$this->_file($this->_assets_path('app.js'))) {
+					$app = $this->_class_to_array('Brosta\Interframework\Signal');
+					$app['as_helper'] = 0;
+					$app['in_class'] = 0;
+					$app['in_namespace'] = 0;
+					$this->_mkdirs([
+						[
+							'name' => $this->_public_path('assets'),
+							'files' => [
+								[
+									'name' => 'app.js',
+									'contents' => 'var '.$app['name'].' = {};'.$this->_new_line().$this->_new_line().$this->_build_application($app, ['name', 'arguments', 'body'], 'javascript').$this->_new_line().'};'
+								]
+							]
+						]
+					]);
+					return $this->_redirect($this->_url('admin/update?type=PHP'));
+				}
+			}
+			$this->_conclude();
+		}
+
+	}
+
+	protected function _monitor($contents = '') {
+		if($this->_isset('display.top_comment')) {
+			$this->_text($this->_get('display.top_comment'));
+		}
+		$this->_tag('doctype')->_attr('html')->_tag();
+		$this->_tag('html')->_attr('class', 'cm-html');
+			if($this->_isset('display.doctype_lang')) {
+				$this->_attr('lang', $this->_get('display.doctype_lang'));
+			}
+			$this->_tag('head');
+				if($this->_isset('display.meta.charset')) {
+					$this->_tag('meta')->_attr('charset', $this->_get('display.meta.charset'))->_tag();
+				}
+				$this->_tag('meta')->_attr('name', 'viewport')->_attr('content', 'width=device-width, initial-scale=1, maximum-scale=1.0')->_tag();
+				$this->_tag('meta')->_attr('httpequiv', 'Content-Type')->_attr('content', 'text/html; charset=UTF-8')->_tag();
+				$this->_tag('meta')->_attr('id', 'domain')->_attr('content', 'My domain')->_tag();
+				$this->_tag('title')->_text($this->_get('title'))->_tag();
+				$this->_tag('link')->_attr('rel', 'icon')->_attr('type', 'image/png')->_attr('href', $this->_assets_url('img/favicon.png'))->_tag();
+				$this->_load_components('css');
+				$this->_load_styles();
+			$this->_tag();
+			$this->_tag('body')->_attr('id', $this->_get('with.body.id'))->_attr('class', 'cm-body');
+				$this->_text($contents, 1);
+				$this->_load_components('js');
+				$this->_load_the_scripts_components();
+			$this->_tag();
+		$this->_tag();
+
+		return 1;
+	}
+
+	protected function _startup($closures) {
 		$closures = $this->_get('this.startup.'.$this->_underscore_to_dot($closures));
 		if($this->_is_array($closures)) {
 			for($i=0;$i<$this->_count($closures);$i++) {
@@ -64,17 +206,21 @@ class Signal {
 		}
 	}
 
-	public function _ready($what) {
-		return $this->_get('ready.'.$what);
+	protected function _ready($ready, $value = null) {
+		if($value === null) {
+			return $this->_get('ready.'.$what);
+		} else {
+			return $this->_set('ready.'.$what, $value);
+		}
 	}
 
-	public function _module(string $action, array $arguments = null) {
-		return $this->_call_method('modules.'.$action, $arguments);
+	protected function _module(string $action, array $arguments = null) {
+		return $this->_get('modules.'.$action);
 	}
 
-	public function _os_is($os) {
+	protected function _os_is($os) {
 		$os = $this->_explode_colon($os);
-		$static_os = $this->_explode_colon($this->_get('static.operating_system'));
+		$static_os = $this->_explode_colon($this->_get('os.operating_system'));
 		for($i=0;$i<$this->_count($os);$i++) {
 			if($static_os[$i] !== $os[$i]) {
 				return false;
@@ -83,166 +229,335 @@ class Signal {
 		return true;
 	}
 
-	private function _vendor_ready() {
+	protected function _vendor_ready() {
 		if($this->_os_is('windows:10')) {
 			if($this->_file($this->_provider_path('composer.json'))) {
-				$this->_require_once($this->_provider_path('vendor/autoload'.$this->_file_ext));
+				$this->_require_once($this->_provider_path('vendor/autoload.'.$this->_get('flammable.code_lng_ext')));
 			} else {
 				if($this->_make_file_force($this->_provider_path('composer.json'), $this->_settings('vendor'))) {
 					if($handle = $this->_operating('-command cd '.$this->_provider_path().'; composer install;')) {
 						return $this->_redirect($this->_url());
 					} else {
-						$this->_fail('vendor', 'Provider FILE NOT FOUND : " vendor/autoload'.$this->_file_ext.'"');
+						$this->_fatal('vendor', 'Provider FILE NOT FOUND : " vendor/autoload.'.$this->_get('flammable.code_lng_ext').'"');
 					}
 				}
 			}
-		} else {
-			$this->_startup('vendor');
 		}
 		return 1;
 	}
 
-	private function _decode_algorithms($algorithms) {
-		return $this->_explode($this->_algorithm_separator, $this->_trim($this->_remove_spaces($algorithms), $this->_algorithm_separator));
+	protected function _get_default_static($default = []) {
+		return $this->_array_replace([
+			'this' => [
+				'items'						=> [],
+				'keep'						=> [],
+				'bodyclass'					=> [],
+				'form_tag_name'				=> 'form',
+				'count'						=> 0,
+				'index'						=> 0,
+				'level'						=> 0,
+				'tag_is_opened'				=> 0,
+				'start_code_space_level'	=> 0,
+				'on' => [
+					'load' => [],
+					'click' => [],
+					'submit' => [],
+					'blur' => [],
+					'change' => [],
+					'drag' => [],
+					'focus' => [],
+					'construct' => [],
+				],
+				'resources' => [
+					'before' => [
+						'css_require' => [],
+						'js_require' => [],
+						'css_auto_view' => [],
+						'js_auto_view' => [],
+						'css_dynamic' => [],
+						'js_dynamic' => [],
+						'scripts' => [],
+						'meta' => [],
+						'style' => [],
+					],
+					'after' => [
+						'css_require' => [],
+						'js_require' => [],
+						'css_auto_view' => [],
+						'js_auto_view' => [],
+						'css_dynamic' => [],
+						'js_dynamic' => [],
+						'scripts' => [],
+						'meta' => [],
+						'style' => [],
+					]
+				]
+			]
+		], $default);
 	}
 
-	private function _set_algorithms($count, $algorithms, $application = []) {
-		for($i=0;$i<$count;$i++) {
-			if($algorithms[$i] == 'ini') {
-				$application['ini'] = $this->_decode_algorithms($application['ini']);
-				$fixed = [];
-				for($j=0;$j<$this->_count($application['ini']);$j++) {
-					$fixed[$application['ini'][$j]] = 1;
+	protected function _clear_ends($algorithms, $separator) {
+		return $this->_explode($separator, $this->_trim($this->_remove_spaces($algorithms), $separator));
+	}
+
+	protected function _boot_autoloaders() {
+		$data = $this->_get('autoloader');
+		for($a=0;$a<$this->_count($data['providers']);$a++) {
+			$provider_username = $this->_part('/', $data['providers'][$a]['name']);
+			foreach($data['providers'][$a]['autoload']['psr-4'] as $namespace => $path) {
+				$this->_autoload_register_namespace_prefix($namespace, $this->_provider_path($provider_username.'/'.$path));
+			}
+			if(isset($data['providers'][$a]['autoload'])) {
+				if(isset($data['providers'][$a]['autoload']['files'])) {
+					for($b=0;$b<$this->_count($data['providers'][$a]['autoload']['files']);$b++) {
+						$this->_require_local($this->_provider_path($provider_username.'/'.$data['providers'][$a]['autoload']['files'][$b]), null, null);
+					}
 				}
-				$this->_set('ini', $fixed);
 			}
-			elseif($algorithms[$i] == 'logic') {
-				$this->_set('static', $application['logic']);
+		}
+		for($c=0;$c<$this->_count($data['applications']);$c++) {
+			foreach($data['applications'][$c]['autoload']['psr-4'] as $namespace => $path) {
+				$this->_autoload_register_namespace_prefix($namespace, $this->_disk($path));
 			}
-			elseif($algorithms[$i] == 'this') {
-				$this->_set('static.this', $application['this']);
+			if(isset($data['applications'][$c]['autoload'])) {
+				if(isset($data['applications'][$c]['autoload']['files'])) {
+					for($d=0;$d<$this->_count($data['applications'][$c]['autoload']['files']);$d++) {
+						$this->_require_local($this->_disk($data['applications'][$c]['autoload']['files'][$d]), null, null);
+					}
+				}
+			}
+		}
+	}
+
+	protected function _server($data) {
+		if($this->_is_array($data)) {
+			
+		}
+	}
+
+
+	protected function _get_application() {
+		return $this->_set('flammable.application', $this->_brosta_decode($this->_file_get_contents($this->_boot_path('application.'.$this->_get('flammable.code_lng_ext'))), true));
+	}
+
+	protected function _get_ready() {
+		if(!$this->_isset('static.root')) {
+			return 1;
+		}
+		if(!$this->_file($this->_boot_path('application.'.$this->_get('flammable.code_lng_ext')))) {
+			$data = $this->_class_to_array('Brosta\Interframework\Signal');
+			if($this->_make_file($this->_boot_path('application.'.$this->_get('flammable.code_lng_ext')), $this->_brosta_encode($data))) {
+				return $this->_get_ready();
+			}
+		} else {
+			return $this->_get_application();
+		}
+	}
+
+	protected function _dataset(array $data, $value) {
+		$fixed = [];
+		for($j=0;$j<$this->_count($data);$j++) {
+			$fixed[$data[$j]] = $value;
+		}
+		return $fixed;
+	}
+
+	protected function _set_algorithms($count, $algorithms, $location) {
+		$configs = [];
+		for($i=0;$i<$count;$i++) {
+			$data = $this->_require_local($location.$this->_dirsep().$algorithms[$i].'.'.$this->_get('flammable.code_lng_ext'), null, null);
+			if($algorithms[$i] == 'ini') {
+				$this->_set('ini', $data);
+				$this->_set('ini.presets', $this->_dataset($this->_get('ini.presets'), 1));
 			} else {
-				$this->_set($algorithms[$i], $application[$algorithms[$i]]);
+				$this->_set($algorithms[$i], $data);
 			}
 		}
 	}
 
-	private function _reset_ram($location) {
-		// set local path
-		$this->_root($location);
-		// -----------------
+	protected function _security($level = 0, $setch) {
+		return $this->_get('static.security.'.$level)($this);
+	}
 
-		$application = $this->_require_local($this->_provider_path('config/app'.$this->_file_ext));
+	protected function _reset_ram($location, $default) {
 
-		if($algorithms = $this->_decode_algorithms('ini,logic,routes,settings,modules,controllers,title,display,this')) {
-			$this->_set_algorithms(9, $algorithms, $application);
+		$location = $this->_rtrim($location, $this->_dirsep());
+
+		$algorithms = $this->_isset('static.algorithms') ? $this->_get('static.algorithms') : [
+			'ini',
+			'autoloader',
+			'os',
+			'app',
+			'routes',
+			'settings',
+			'modules',
+			'display',
+			'cache'
+		];
+
+		$this->_set('static', $this->_get_default_static($default));
+
+		if($this->_security(0, 'passed')) {
+			$this->_set_algorithms($this->_count($algorithms), $algorithms, $location.$this->_dirsep().$this->_config_path());
 		}
 
-		// set local path
-		$this->_root($location);
-		// -----------------
+		$domain = $this->_public_path();
+
+		if($this->_substr($domain, 0, 1) == $this->_dirsep()) {
+			$domain = $this->_urlsep().$this->_to_urlsep($domain);
+		}
+
+		$dna_file = $location.$this->_dirsep().$this->_storage('tmp/dna.bro');
+
+		if($dna = $this->_file($dna_file)) {
+			$dna = $this->_file_get_contents($dna_file);
+			$this->_delete_file($dna_file);
+		} else {
+			$this->_delete('static.root');
+		}
+
+		// tiktoktiktoktiktok
+
+		$this->_root($this->_get('app.root')); 
+		//AFTER a url, local url etc. is seted (ROM)
+
+		if($ready = $this->_get_ready()) {
+
+			$this->_boot_autoloaders();
+			$this->_set_ini_presets([
+				'request_from_globals' => 1,
+				'local' => 1,
+				'router' => 1,
+				'vendor' => 1,
+				'view' => 1,
+				'bridge' => 1,
+				'safe_mode' => 0,
+				'helpers' => 1,
+				'auto_make_controller' => 1,
+			]);
+
+			// Check if your license id is correct
+			if(LICENSE_ID !== $this->_get('app.license_id')) {
+				$this->_fatal('your_license_id_is_not_correct');
+			}
+			// Load the providers management
+			if($this->_ini('vendor')) {
+				$this->_vendor_ready() ? $this->_module('vendor.composer')() : $this->_fatal('vendor', 'can not be load');
+			}
+			if($this->_ini('request_from_globals')) {
+				// Create request from the global vars
+				$this->_request_from_globals();
+				// ----------------------------
+			} else {
+				// Create request from the system vars
+				$this->_request_from_local();
+				// ----------------------------
+			}
+		}
+
 		$this->_reset_this();
+		$this->_set('static.is_started', 1);
+
+		return 1;
 
 	}
 
-	private function _set_start_ini(array $array) {
+	protected function _var($phrase) {
+		if(!$this->_isset('flammable.vars.'.$phrase)) {
+			return $this->_set('flammable.vars.'.$phrase, $this->_replace('_', '.', $phrase));
+		}
+		return $this->_get('flammable.vars.'.$phrase);
+	}
+
+	protected function _set_ini_presets(array $array) {
 		foreach($array as $key => $value) {
 			if($this->_is_numeric($value)) {
-				if((int)$this->_ini($key) !== 1) {
-					$this->_fail('start_ini', 'logic " '.$key.' " not found.');
+				if($this->_get($this->_var('ini_presets').'.'.$key, 1)) {
+					$this->_ini($key, $value);
+				} else {
+					if($value === 1) {
+						$this->_fatal($this->_var('ini_presets'), '( '.$key.' ) Not allowed');
+						return;
+					}
 				}
 			} else {
-				$this->_fail('ini', 'ini must be a numeric 0 or 1');
+				$this->_fatal('ini_presets', 'ini_presets must be a numeric 0 or 1');
 			}
 		}
-		return $array;
 	}
 
 	public function _ini($key, $value = null) {
 		if($value === 0 || $value === 1 || $value === null) {
+			if(!$this->_isset('ini.presets.'.$key)) {
+				$this->_fatal('ini', 'Broken '.$this->_config_path('ini.'.$this->_get('flammable.code_lng_ext')).' file ( '.$key.' )');
+			}
 			if($value === null) {
 				return $this->_get('ini.'.$key, 1);
 			} else {
-				return $this->_set('ini.'.$key, $value);
+				if($value === 1) {
+					if(!$this->_get('ini.presets.'.$key, 1)) {
+						$this->_fatal('ini', '( '.$key.' ) Not allowed');
+						return;
+					}
+				}
+				$this->_set('ini.'.$key, $value);
 			}
 		} else {
-			$this->_fail('argument', 'Unexpected ini SET from key. Reason: Argument 2 must be an integer 0 or 1');
+			$this->_fatal('argument', 'Unexpected ini SET from key. Reason: Argument 2 must be an integer 0 or 1');
 		}
 	}
 
-	public function _is_started() {
+	protected function _is_started() {
 		return $this->_get('static.is_started', 1);
 	}
 
-	public function _route_exists($controller) {
-		return $this->_in_array($controller, $this->_get('routes'));
-	}
-
-	private function _transfer($key) {
+	protected function _transfer($key) {
 		$data = $this->_get($key);
 		$this->_delete($key);
 		return $data;
 	}
 
-	public function _brosta_encode($data) {
+	protected function _brosta_encode($data) {
 		return $this->_json_encode($data);
 	}
 
-	public function _brosta_decode($data) {
-		return $this->_json_decode($data);
+	protected function _brosta_decode($data, $as_array) {
+		return $this->_json_decode($data, $as_array);
 	}
 
-	public function _get_root_document($ichnos = null) {
-
+	protected function _get_root_document($ichnos = null) {
 		$root_document = $this->_get('static.root_document');
-
 		if($ichnos === null) {
 			return $this->_get('static.root_document');
 		}
-
 		return $ichnos;
 	}
 
-	public function _set_root_document($diamesolavitis) {
-		if($this->_is_string($diamesolavitis)) {
-			$diamesolavitis = $this->_brosta_encode($diamesolavitis);
-			$diamesolavitis = $this->_brosta_decode($diamesolavitis);
+	protected function _set_root_document($manager) {
+		if($this->_is_string($manager)) {
+			//
 		} else {
 			//
 		}
 
-		if($diamesolavitis) {
-			if($this->_set('root.root_document', $diamesolavitis)) {
+		if($manager) {
+			if($this->_set('root.root_document', $manager)) {
 				return 1;
 			}
 		}
 		return 0;
 	}
 
-	public function _is_function($data) {
+	protected function _is_function($data) {
 		return is_callable($data);
 	}
 
-	public function _cookie($key, $value = null) {
-		if(!$value) {
-			return $this->_get('static.request.server.cookie.'.$key);
-		} else {
-			return $this->_set('static.request.server.cookie.'.$key, $value);
-		}
+	protected function _cookie($cookie) {
+		$this->_set('cookie', $cookie);
+		return $this;
 	}
 
-	public function _get_object_info($type, $point, $trace) {
-		//
-	}
-
-	private function _install($app) {
-		$this->_ini('with_view', 0);
-		$this->_ini('with_controller', 0);
-		$this->_ini('with_autoloader', 0);
-		$this->_module('installer.'.$app);
-	}
-
-	public function _token($id = null) {
+	protected function _token($id = null) {
 		if($id) {
 			$this->_set('static.token', $id);
 		} else {
@@ -250,17 +565,17 @@ class Signal {
 		}
 	}
 
-	private function _token_ok($id) {
+	protected function _token_ok($id) {
 		return $this->_token() === $id;
 	}
 
-	public function _client_is_browser($array) {
+	protected function _client_is_browser($array) {
 		if($this->_isset('client.is_browser')) {
 			return 0;
 		}
 	}
 
-	private function _reset_this() {
+	protected function _reset_this() {
 
 		$resources = $this->_get('this.resources');
 		$this->_delete('this.items');
@@ -271,23 +586,23 @@ class Signal {
 		$this->_set('tag', $this->_new_tag());
 	}
 
-	private function _on($event, $callback) {
-		$this->_push('this.on.'.$event, $callback);
+	protected function _on($event, $callback) {
+		$this->_push('on.'.$event, $callback);
 	}
 
 
-	public function _get_template() {
+	protected function _get_template() {
 		if(!$this->_isset('static.template.name')) {
 			return $this->_set('static.template.name', 'default');
 		}
 		return $this->_get('static.template.name');
 	}
 
-	public function _set_template($name) {
+	protected function _set_template($name) {
 		return $this->_set('static.template.name', $name);
 	}
 
-	private function _request_from_globals() {
+	protected function _request_from_globals() {
 		$this->_request([
 			'get' => $_GET,
 			'post' => $_POST,
@@ -297,7 +612,7 @@ class Signal {
 		]);
 	}
 
-	private function _request_from_local() {
+	protected function _request_from_local() {
 		$this->_request([
 			'get' => $this->_get('request.get'),
 			'post' => $this->_get('request.post'),
@@ -319,7 +634,13 @@ class Signal {
 		$this->_tag();
 	}
 
-	private function _unset($unset_key, $replaces, $results = [], $level = 0, $lock = 0, $stop = 0, $unlock = 0) {
+	public function _add_sidebar($pos, $data) {
+		$this->_tag('div')->_attr('id', 'sidebar')->_attr('class', 'cm-sidebar cm-sidebar-'.$pos);
+			$this->_text('fewfwf');
+		$this->_tag();
+	}
+
+	protected function _unset($unset_key, $replaces, $results = [], $level = 0, $lock = 0, $stop = 0, $unlock = 0) {
 		foreach($replaces as $key => $value) {
 			if(!$stop && !$this->_is_array($unset_key) && $key == $unset_key) {
 				$stop = 1;
@@ -355,7 +676,7 @@ class Signal {
 		return $results;
 	}
 
-	public function _path_to_array($path, $sep = '/') {
+	protected function _path_to_array($path, $sep = '/') {
 		return $this->_explode($sep, $path);
 	}
 
@@ -365,7 +686,7 @@ class Signal {
 		$this->_tag();
 	}
 
-	public function build_class($class) {
+	protected function build_class($class) {
 		$editor = $this->editor('php');
 		foreach($class->get('properties') as $property) {
 			$editor->tag('property');
@@ -390,7 +711,7 @@ class Signal {
 		return '<?php'.$this->new_line().$editor->final().$this->new_line().'?>';
 	}
 
-	public function _field($field) {
+	public function _add_field($field) {
 		if($field['type'] == 'input') {
 			$this->_tag('div')->_attr('class', 'cm-field');
 				$this->_tag('div')->_class('cm-field-container cm-label-prefixed');
@@ -442,66 +763,291 @@ class Signal {
 		}
 	}
 
-	public function _new_class($name, array $constructor = null) {
-		$class = $this->_class_separator_fix($name);
-		if($this->_ini('with_autoloader')) {
-			if(!$this->_class_loaded($class, 'provider')) {
-				$this->_push('static.autoloader.loaded.provider', $class);
-				$this->_require_local($this->_provider_path($class.$this->_file_ext));
-			}
+	protected function _autoload_register_namespace_prefix($name, $path) {
+		if($this->_isset('autoloader.prefix.'.$name)) {
+			$this->_fatal('_autoload_register_namespace_prefix', 'Namespace: ( '.$name.' ) has already in use');
 		}
-		if($constructor) {
-			$instance = new $class(...$constructor);
+
+		$path = $this->_to_dirsep($path);
+		if($path == '') {
+			$path = $this->_dirsep();
+		}
+
+		$this->_set('autoloader.prefix.'.$name, $path);
+		$this->_set('autoloader.loaded.'.$name, []);
+	}
+
+	protected function _autoload_namespace_prefix_registered($name) {
+		return $this->_isset('autoloader.prefix.'.$name);
+	}
+
+	protected function _autoload_get_name_stracture($name) {
+		$structure = $this->_base_array_file($this->_class_separator_fix($name), '\\');
+
+		if(!$this->_autoload_namespace_prefix_registered($structure['dirname'])) {
+			$this->_fatal('autoloader', 'The namespace name ( '.$structure['dirname'].' ) does not registered. Use: autoload_register_namespace_prefix("PREFIX_NAME", "PATH_LOCATION") to register your namespace name.');
 		} else {
-			$instance = new $class;
+			$structure['location'] = $this->_get('autoloader.prefix.'.$structure['dirname']);
+			$namespace = $structure['dirname'];
+			if($structure['subdirectory']) {
+				$rest = $this->_implode($structure['subdirectory'], '/');
+				$namespace.='\\'.$this->_class_separator_fix($rest);
+				$structure['location'].='/'.$rest;
+			}
+			$structure['location'] = $this->_to_dirsep($structure['location'].'/'.$structure['filename']).'.'.$this->_get('flammable.code_lng_ext');
+			$structure['classname'] = $namespace.'\\'.$structure['filename'];
+			return $structure;
 		}
-		return $instance;
 	}
 
-	public function _provider($name) {
-		return $this->_interface($this->_require_local($this->_provider_path($name.'/config/provider'.$this->_file_ext)));
+	protected function _make_class($data) {
+		//
 	}
 
-	public function _get_controller($name) {
-		$class = $this->_class_separator_fix($name);
-		if(!$this->_class_loaded($class, 'controllers')) {
-			$this->_push('static.autoloader.loaded.controllers', $class);
-			if($this->_file($this->_controllers_path($class.$this->_file_ext))) {
-				$this->_require_local($this->_controllers_path($class.$this->_file_ext));
-			} else {
-				$this->_fail('controllers', 'Controller ( '.$class.' ) not exists in path ( '.$this->_controllers_path().' )');
+	protected function _make_controller($path) {
+		$editor = $this->_editor('php');
+		//Open namespace
+		$editor->tag('namespace')->attr('name', $this->_ucfirst_bysep('\\', $this->_class_separator_fix('App\\'.$path)))->enter();
+		$editor->fixedSpace(-1);
+		$editor->enter();
+		//Open class
+		$editor->tag('class')->attr('name', $this->_get('route.controller').'_controller')->enter();
+			$editor->tag('function')->attr('name', $this->_get('route.method'));
+				$editor->attr('visibility', 'public');
+				$editor->attr('is_static', 0);
+				$editor->attr('arguments', []);
+				$editor->attr('body', 'return null;');
+			$editor->tag();
+		$editor->enter();
+		//close class
+		$editor->tag();
+		//close namespace
+		$editor->tag();
+
+		if($this->_ini('local')) {
+			if($this->_make_file($this->_app_path($path.$this->_get('route.controller').'_controller.'.$this->_get('flammable.code_lng_ext')), '<?php'.$this->_new_line().$editor->final().$this->_new_line().'?>')) {
+				return 1;
 			}
 		}
-		return new $class;
+		return 0;
 	}
 
-	public function _add_to_autoloader($name, $prefix) {
-		$name = $this->_class_separator_fix($name);
-		if(!$this->_class_loaded($name, $prefix)) {
-			$this->_push('static.autoloader.loaded.'.$prefix, $name);
-			$this->_require_local('classes/'.$prefix.'/'.$name.$this->_file_ext);
+	protected function _global($key) {
+		return $this->_get('static.globals.'.$key);
+	}
+
+	protected function _call_user_func_array($object, string $method, array $arguments = null) {
+		return $object;
+	}
+
+	protected function _get_controller() {
+		if(!$this->_isset('route.controller')) {
+			$this->_fatal('route.controller.name.is.missing');
 		}
-		return new $name;
-	}
 
-	public function _class_add_map($prefix) {
-		if($this->_isset('static.autoloader.loaded.'.$prefix)) {
-			$this->_delete('static.autoloader.loaded.'.$prefix);
+		$app_namespace = $this->_no_disk($this->_app_path()).'\\';
+
+ 		$classname = $this->_get('route.controller');
+ 		$method = $this->_get('route.method');
+ 		$args = $this->_get('route.args');
+
+		$path = 'controllers/';
+		if($this->_is_admin()) {
+			$path.='admin/';
 		}
-		$this->_set('static.autoloader.loaded.'.$prefix, []);
-	}
 
-	public function _class_loaded($name, $prefix) {
-		if(!$this->_isset('static.autoloader.loaded.'.$prefix)) {
-			$this->_fail('class_loaded', $prefix ? 'Map ( '.$prefix.' ) not exists! Use: class_add_map(your_map_name) to add your map.' : 'Map name is missing.');
+		$finalname = $app_namespace.$path.$classname.'_controller';
+
+		$as_key = $this->_slash_to_dot('app.'.$path);
+
+		if($this->_isset('static.controllers.'.$as_key)) {
+			$instance = $this->_get('static.controllers.'.$as_key);
+		} else {
+			if(!$this->_file($this->_app_path($path.$classname.'_controller.'.$this->_get('flammable.code_lng_ext')))) {
+				if($this->_ini('auto_make_controller')) {
+					$instance = $this->_make_controller($path);
+				} else {
+					$this->_fatal('controllers', 'Controller name ( '.$classname.' ) not exists');
+				}
+			}
+			$this->_set('static.controllers.'.$as_key, 1);
 		}
-		return $this->_in_array($name, $this->_get('static.autoloader.loaded.'.$prefix));
+
+		$instance = $this->_new($finalname);
+
+		if(method_exists($instance, $method)) {
+			$results = call_user_func_array([$instance, $method], [_interface([
+				'view' => 'update/create',
+				'title' => 'Brosta development',
+				'department' => 'development',
+				'sidebar' => [
+					'top' => [],
+					'left' => [],
+					'right' => [],
+					'bottom' => [],
+				],
+				'header' => [],
+				'body' => [
+					'id' => $this->_unique_wordslower(3),
+					'class' => 'cm-body'
+				],
+				'container' => [
+					'id' => $this->_unique_wordslower(3),
+					'class' => 'cm-container'
+				],
+				'contents' => [
+					'id' => $this->_unique_wordslower(3),
+					'class' => 'cm-contents'
+				],
+				'standard_style_css' => $this->_get_standard_css(),
+				'type' => _gp('type'),
+				'form' => [
+					'name' => 'update',
+					'method' => 'post',
+					'action' => _url('/admin/update', ['type' => $this->_gp('type')]),
+					'fields' => [
+						[
+							'label' => 'Application mode',
+							'caption' => 'app_mode',
+							'type' => 'select',
+							'select_type' => '',
+							'value' => [
+								[
+									'name' => 'client',
+								],
+								[
+									'name' => 'server',
+								],
+							],
+							'default_value' => '',
+						],
+						[
+							'label' => 'OS Version',
+							'caption' => 'os_version',
+							'type' => 'input',
+							'input_type' => 'text',
+							'value' => '',
+							'default_value' => '1.0',
+						],
+						[
+							'label' => 'Namespace name',
+							'caption' => 'with_namespace',
+							'type' => 'input',
+							'input_type' => 'text',
+							'value' => '',
+							'default_value' => '',
+						],
+						[
+							'label' => 'Class name',
+							'caption' => 'with_class',
+							'type' => 'input',
+							'input_type' => 'text',
+							'value' => '',
+							'default_value' => 'Signal',
+						],
+						[
+							'label' => 'Methods prefix',
+							'caption' => 'methods_prefix',
+							'type' => 'input',
+							'input_type' => 'text',
+							'value' => '',
+							'default_value' => 'x_',
+						],
+						[
+							'label' => 'Helpers prefix',
+							'caption' => 'helpers_prefix',
+							'type' => 'input',
+							'input_type' => 'text',
+							'value' => '',
+							'default_value' => 'x_',
+						],
+						[
+							'label' => 'Standard style css',
+							'caption' => 'standard_style_css',
+							'type' => 'textarea',
+							'textarea_type' => '',
+							'value' => '',
+							'default_value' => $this->_get_standard_css()
+						],
+						[
+							'label' => 'Standard js',
+							'caption' => 'standard_js',
+							'type' => 'textarea',
+							'textarea_type' => '',
+							'value' => '',
+							'default_value' => $this->_get_standard_js()
+						],
+						[
+							'label' => 'Standard js',
+							'caption' => 'standard_js',
+							'type' => 'textarea',
+							'textarea_type' => '',
+							'value' => '',
+							'default_value' => $this->_get_standard_js()
+						],
+						[
+							'label' => 'Standard js',
+							'caption' => 'standard_js',
+							'type' => 'textarea',
+							'textarea_type' => '',
+							'value' => '',
+							'default_value' => $this->_get_standard_js()
+						]
+					]
+				]
+			])]);
+			$this->_set('response.data', $results);
+			$this->_set('response.status', 200);
+		} else {
+			$this->_set('response.status', 404);
+		}
 	}
 
-	public function _editor($type, $callback = null) {
-		$editor = $this->_instance();
+	protected function _new($name, array $constructor = null) {
+		$data = $this->_autoload_get_name_stracture($name);
+
+		if(!$this->_class_loaded($data)) {
+			$this->_push('autoloader.loaded.'.$data['dirname'], $data['location']);
+			$this->_require_local($data['location'], null, null);
+		}
+
+		$name = $data['classname'];
+
+		if($constructor) {
+			$class = new $name(...$constructor);
+		} else {
+			$class = new $name;
+		}
+
+		return $class;
+	}
+
+	protected function _provider($name, array $constructor = null) {
+		$data = $this->_autoload_get_name_stracture($name);
+
+		if(!$this->_class_loaded($data)) {
+			$this->_push('autoloader.loaded.'.$data['dirname'], $data['location']);
+			$this->_require_local($data['location'], null, null);
+		}
+
+		$name = $data['classname'];
+
+		if($constructor) {
+			$class = new $name(...$constructor);
+		} else {
+			$class = new $name;
+		}
+
+		return $class;
+	}
+
+	protected function _class_loaded($data) {
+		return $this->_in_array($data['location'], $this->_get('autoloader.loaded.'.$data['dirname'])) ? 1 : 0;
+	}
+
+	protected function _editor($type, $callback = null) {
+		$editor = $this->_interface($this->_ram['public']);
 		$editor->_doctype($type);
-		$editor->_reset_this();
 		if($callback) {
 			$bound = $this->_bind($callback, $editor);
 	    	return $bound();
@@ -509,11 +1055,11 @@ class Signal {
 		return $editor;
 	}
 
-	public function _assets_url(string $url = '') {
-		return $this->_url('assets/'.$this->_to_url_s($url));
+	protected function _assets_url(string $url = '') {
+		return $this->_url('assets/'.$this->_to_urlsep($url));
 	}
 
-	public function _contains_in($haystack, $needle) {
+	protected function _contains_in($haystack, $needle) {
 		$needle = $this->_is_array($needle) ? $needle : [$needle];
 		for($i=0;$i>$this->_count($needle);$i++) {
 			if($needle[$i] !== '' && $this->_pos($haystack, $needle[$i]) !== false) {
@@ -523,7 +1069,7 @@ class Signal {
         return false;
 	}
 
-	public function _delete_file($files) {
+	protected function _delete_file($files) {
 		$success = true;
         foreach($this->_is_array($files) ? $files : [$files] as $file) {
             if(!$this->_unlink($file)) {
@@ -533,19 +1079,19 @@ class Signal {
         return $success;
 	}
 
-	public function _explode_dot(string $data) {
+	protected function _explode_dot(string $data) {
 		return $this->_explode('.', $data);
 	}
 
-	public function _explode_lines(string $data) {
+	protected function _explode_lines(string $data) {
 		return $this->_explode($this->_new_line(), $data);
 	}
 
-	public function _explode_colon(string $data) {
+	protected function _explode_colon(string $data) {
 		return $this->_explode(':', $data);
 	}
 
-	public function _array_key_value($array, $something = null, $multiple = false) {
+	protected function _array_key_value($array, $something = null, $multiple = false) {
     	if($this->_is_empty($array)) {
     		return $something;
     	}
@@ -563,7 +1109,7 @@ class Signal {
 		}
 	}
 
-	public function _get_where($where, $item) {
+	protected function _get_where($where, $item) {
 		foreach($where as $key => $value) {
 			if(!$this->_array_key($key, $item)) {
 				return false;
@@ -577,7 +1123,7 @@ class Signal {
 		return $item;
 	}
 
-	public function _array_where($where, $array = []) {
+	protected function _array_where($where, $array = []) {
 		$results = [];
 		for($i=0;$i<$this->_count($array);$i++) {
 			if($item = $this->_get_where($where, $array[$i])) {
@@ -591,25 +1137,25 @@ class Signal {
 		return $results;
 	}
 
-	public function _first_in($haystack, $needle) {
+	protected function _first_in($haystack, $needle) {
 		$needle = $this->_is_array($needle) ? $needle : [$needle];
 		for($i=0;$i>$this->_count($needle);$i++) {
-			if($needle[$i] !== '' && $this->_pos($haystack, 0, $this->_length($needle[$i])) === $this->_string($needle[$i], false)) {
+			if($needle[$i] !== '' && $this->_pos($haystack, 0, $this->_length($needle[$i])) === $this->_string($needle[$i])) {
 				return true;
 			}
 		}
         return false;
 	}
 
-	public function _all() {
-        return $this->_ram[$this->_valve];
+	protected function _all() {
+        return $this->_ram[$this->_valve->key];
 	}
 
-	public function _part($bisectrix, $content, $before = true) {
+	protected function _part($bisectrix, $content, $before = true) {
         return strstr($content, $bisectrix, $before);
 	}
 
-	private function _interface_decode($interface) {
+	protected function _interface_decode($interface) {
 		$interface = $this->_explode('_', $interface);
 
 		return [
@@ -621,24 +1167,49 @@ class Signal {
 
 	}
 
-	private function _get_interface_standards($encoded, $contents) {
+	protected function _get_interface_standards($encoded, $contents, $callback = null) {
+
+		if($encoded === null && $contents === null && $callback === null) {
+			$editor = $this->_editor('php');
+			//Open namespace
+			$editor->tag('namespace')->attr('name', $this->_class_separator_fix('App\\'.$this->_get('app.name')))->enter();
+			$editor->fixedSpace(-1);
+			$editor->enter();
+			//Open class
+			$editor->tag('class')->attr('name', $this->_get('route.controller').'_controller')->enter();
+				$editor->tag('function')->attr('name', $this->_get('route.method'));
+					$editor->attr('visibility', 'public');
+					$editor->attr('is_static', 0);
+					$editor->attr('arguments', []);
+					$editor->attr('body', 'return null;');
+				$editor->tag();
+			$editor->enter();
+			//close class
+			$editor->tag();
+			//close namespace
+			$editor->tag();
+		}
 
 		$time = $this->_get_time();
 
 		if($contents !== null) {
-			if(!$this->_is_string($contents) && !$this->_is_array($contents)) {
+			if(!$this->_is_string($contents) && $callback) {
+
+				if($this->_is_array($contents)) {
+					$contents = $this->_interface($contents);
+				}
+
 				if($this->_is_object($contents)) {
-					if($contents instanceof Diamesolavitis) {
+					if($contents instanceof Manager) {
+						// your security code here Manager->key
 						if($encoded == null) {
-							return $this->_module('response.guzzle');
-						} else {
-							$this->_module('request.guzzle');
+							return $this->_bind($callback, $contents)($contents->status, $contents->headers, $contents->body, $contents->protocol);
 						}
 					} else {
-						$this->_fail('interface', 'Unknown interface provider');
+						$this->_fatal('interface', 'Unknown interface provider');
 					}
 				} else {
-					$this->_fail('argument', '2 must be a type of object ( '.$this->_get_type($contents).' ) given');
+					$this->_fatal('argument', '2 must be a type of object ( '.$this->_get_type($contents).' ) given');
 				}
 			}
 		}
@@ -646,14 +1217,14 @@ class Signal {
 		if($encoded !== null || $contents !== null) {
 			if($contents !== null) {
 				if(!$this->_is_string($encoded)) {
-					$this->_fail('argument', '1 must be a type of string ( '.$this->_get_type($encoded).' ) given');
+					$this->_fatal('argument', '1 must be a type of string ( '.$this->_get_type($encoded).' ) given');
 				}
 				if(!$this->_is_array($contents)) {
-					$this->_fail('argument', '2 must be a type of array ( '.$this->_get_type($contents).' ) given');
+					$this->_fatal('argument', '2 must be a type of array ( '.$this->_get_type($contents).' ) given');
 				}
 			} else {
 				if(!$this->_is_array($encoded)) {
-					$this->_fail('argument', '1 must be a type of array ( '.$this->_get_type($encoded).' ) given');
+					$this->_fatal('argument', '1 must be a type of array ( '.$this->_get_type($encoded).' ) given');
 				} else {
 					$contents = $encoded;
 					$encoded = $time['year'].':'.$time['month'].':'.$time['day'];
@@ -671,8 +1242,12 @@ class Signal {
 		];
 	}
 
-	public function _interface($decoded = null, $contents = null) {
-		$interface = $this->_get_interface_standards($decoded, $contents);
+	public function _interface($decoded = null, $contents = null, $callback = null) {
+		$interface = $this->_get_interface_standards($decoded, $contents, $callback);
+
+		if($this->_is_string($interface)) {
+			
+		}
 
 		$encoded = $this->_replace(':', '_', $interface['encoded']);
 
@@ -718,38 +1293,57 @@ class Signal {
         return $init;
 	}
 
-	public function _include($file, $data = null) {
-		$file = $this->_template_path($file.$this->_file_ext);
-
+	protected function _documented($data = null) {
 		$vars = [];
-
 		if($data) {
-			if($data instanceof Diamesolavitis) {
-				$vars['data'] = $data;
+			if($data instanceof Manager) {
+				$vars['document'] = $data;
 			} else {
-				$vars['data'] = $this->_interface($data);
+				$vars['document'] = $this->_interface($data);
 			}
+		} else {
+			$vars['document'] = $this->_interface($this->_get_default_static());
 		}
-
-		$vars['html'] = $this->_instance();
-
-		return $this->_require_local($file, $vars);
+		return $vars;
 	}
 
-	public function _isset($key) {
-		$key = $this->_to_base($key);
+	protected function _include($file, $data = null) {
+		$file = $this->_template_path($file.'.'.$this->_get('flammable.code_lng_ext'));
+
+		$vars = $this->_documented($data);
+
+		$mix = [];
+		if($this->_ini('local')) {
+			$mix = $this->_require_local($file, $vars, null);
+			if($this->_is_function($mix)) {
+				$mix = $mix;
+			}
+			if($this->_is_array($mix)) {
+				$mix = $this->_interface($mix);
+			}
+		}
+		return $mix;
+	}
+
+	public function _isset($key, $logic = null) {
+		$key = $this->_base($key);
 		$keys = $key['keys'];
 		$base = $key['base'];
-		if($this->_array_key($base, $this->_ram[$this->_valve])) {
+
+		if($logic) {
+			return $logic->get($key, $value);
+		}
+
+		if($this->_array_key($base, $this->_ram[$this->_valve->key])) {
 			$count = $this->_count($keys);
 			if($count > 0) {
-				$results = $this->_array_key_value($keys, $this->_ram[$this->_valve][$base], true);
+				$results = $this->_array_key_value($keys, $this->_ram[$this->_valve->key][$base], true);
 				if($results === NOTHING) {
 					return false;
 				}
 				return true;
 			} else {
-		   		if($this->_array_key($base, $this->_ram[$this->_valve])) {
+		   		if($this->_array_key($base, $this->_ram[$this->_valve->key])) {
 		   			return true;
 		   		}
 		   		return false;
@@ -758,43 +1352,73 @@ class Signal {
 		return false;
 	}
 
-	public function _last_in($haystack, $needle) {
+	protected function _last_in($haystack, $needle) {
 		$needle = $this->_is_array($needle) ? $needle : [$needle];
 		for($i=0;$i>$this->_count($needle);$i++) {
-			if($this->_substr($haystack, -$this->_length($needle[$i])) === $this->_string($needle[$i], false)) {
+			if($this->_substr($haystack, -$this->_length($needle[$i])) === $this->_string($needle[$i])) {
 				return true;
 			}
 		}
         return false;
 	}
 
-	public function _set($key, $value) {
-		$key = $this->_to_base($key);
+	protected function _config($key) {
+		return $this->_get_returned_array_file($this->_config_path(), $key);
+	}
+
+	protected function _get_local_array($where) {
+		$key = $this->_base($where);
+		$path = $key['base'];
+		$rest = $key['keys'];
+		return $this->_get_returned_array_file($path, $rest);
+	}
+
+	protected function _get_returned_array_file($file, $where) {
+		$fileok = 0;
+		for($i=0;$i<$this->_count($where);$i++) {
+			if(!$fileok) {
+				if($this->_is_file($file.'.'.$this->_get('flammable.code_lng_ext'))) {
+					$fileok = 1;
+					$data = $this->_require_local($file.'.'.$this->_get('flammable.code_lng_ext'), null, null);
+				}
+				$file.=$this->_dirsep().$where[$i];
+			} else {
+				$data = $data[$where[$i]];
+			}
+		}
+		return $data;
+	}
+
+	protected function _set($key, $value) {
+		$key = $this->_base($key);
 		$keys = $key['keys'];
 		$base = $key['base'];
+
 		$count = $this->_count($keys);
-		if(!$this->_array_key($base, $this->_ram[$this->_valve])) {
-			$this->_ram[$this->_valve][$base] = [];
+		if(!$this->_array_key($base, $this->_ram[$this->_valve->key])) {
+			$this->_ram[$this->_valve->key][$base] = [];
 		}
 		if($count > 0) {
 			$keys[$count] = $value;
-			$data = $this->_array_sm($keys);
-			$this->_ram[$this->_valve][$base] = $this->_array_replace($this->_ram[$this->_valve][$base], $data, true);
+			$data = $this->_array_dimensional($keys);
+			$this->_ram[$this->_valve->key][$base] = $this->_array_replace($this->_ram[$this->_valve->key][$base], $data, true);
 		} else {
-			$this->_ram[$this->_valve][$base] = $value;
+			$this->_ram[$this->_valve->key][$base] = $value;
 		}
 		return $value;
 	}
 
-	public function _get($key, $default = null) {
-		$key = $this->_to_base($key);
+	protected function _get($key, $default = null) {
+
+		$key = $this->_base($key);
 		$keys = $key['keys'];
 		$base = $key['base'];
-		if($this->_array_key($base, $this->_ram[$this->_valve])) {
+
+		if($this->_array_key($base, $this->_ram[$this->_valve->key])) {
 			if($this->_count($keys) > 0) {
-				$results = $this->_array_key_value($keys, $this->_ram[$this->_valve][$base], true);
+				$results = $this->_array_key_value($keys, $this->_ram[$this->_valve->key][$base], true);
 			} else {
-		   		$results = $this->_ram[$this->_valve][$base];
+		   		$results = $this->_ram[$this->_valve->key][$base];
 			}
 		} else {
 			return '';
@@ -808,37 +1432,37 @@ class Signal {
 		return $results;
 	}
 
-	public function _delete($key) {
-
-		$key = $this->_to_base($key);
+	protected function _delete($key) {
+		$key = $this->_base($key);
 		$keys = $key['keys'];
 		$base = $key['base'];
+
 		$count = $this->_count($keys);
 		if($count > 0) {
 			if($count == 1) {
-				unset($this->_ram[$this->_valve][$base][$keys[0]]);
+				unset($this->_ram[$this->_valve->key][$base][$keys[0]]);
 			} else {
-				$this->_ram[$this->_valve][$base] = $this->_unset($this->_array_sm($keys), $this->_ram[$this->_valve][$base]);
+				$this->_ram[$this->_valve->key][$base] = $this->_unset($this->_array_dimensional($keys), $this->_ram[$this->_valve->key][$base]);
 			}
 		} else {
-		   	unset($this->_ram[$this->_valve][$base]);
+		   	unset($this->_ram[$this->_valve->key][$base]);
 		}
 	}
 
-	public function _push($key, $value) {
-		$key = $this->_to_base($key);
+	protected function _push($key, $value) {
+		$key = $this->_base($key);
 		$keys = $key['keys'];
 		$base = $key['base'];
 		$count = $this->_count($keys);
 		if($count > 0) {
-			$data = $this->_array_key_value($keys, $this->_ram[$this->_valve][$base], true);
+			$data = $this->_array_key_value($keys, $this->_ram[$this->_valve->key][$base], true);
 			$data[] = $value;
 			$value = $data;
 			$keys[$count] = $value;
-			$data = $this->_array_sm($keys);
-			$this->_ram[$this->_valve][$base] = $this->_array_replace($this->_ram[$this->_valve][$base], $data, true);
+			$data = $this->_array_dimensional($keys);
+			$this->_ram[$this->_valve->key][$base] = $this->_array_replace($this->_ram[$this->_valve->key][$base], $data, true);
 		} else {
-			$this->_ram[$this->_valve][$base][] = $value;
+			$this->_ram[$this->_valve->key][$base][] = $value;
 		}
 		return $value;
 	}
@@ -848,19 +1472,11 @@ class Signal {
 		$this->_exit();
 	}
 
-	public function _require($file, $position = 'require') {
-		$url = $this->_assets_url($file);
-		if($this->_file($this->_get_public_path_from_host($this->_assets_path($file)))) {
-			$ext = $this->_lower($this->_file_extention($url));
-			if(!$this->_isset('settings.'.$ext.'_'.$position)) {
-				if(!$this->_in_array($url, $this->_get('this.resources.after.'.$ext.'_'.$position)) && !$this->_in_array($url, $this->_get('this.resources.before.'.$ext.'_'.$position))) {
-					$this->_push('this.resources.'.$this->_get('after_or_before').'.'.$ext.'_'.$position, $url);
-				}
-			}
-		}
+	protected function _database($file) {
+		$this->_make_file_force($this->_database_path('', $something->get('token')), $something->brosta_encode());
 	}
 
-	public function _snippet($file, $data = []) {
+	protected function _snippet($file, $data = []) {
 		if($this->_count($this->_path_to_array($file)) == 1) {
 			$file.='/default';
 		}
@@ -869,18 +1485,23 @@ class Signal {
 		$this->_include($this->_common_path('snippets/'.$file), $data);
 	}
 
-	public function _args_to_string_vars($array) {
+	protected function _args_to_string_vars($array, $type) {
 		$res = '';
 		for($i=0;$i<$this->_count($array);$i++) {
 			if($res) {
 				$res.=', ';
 			}
-			$res.='$'.$array[$i]['name'];
+			if($type == 'javascript') {
+				$res.=$array[$i]['name'];
+			}
+			elseif($type == 'php') {
+				$res.='$'.$array[$i]['name'];
+			}
 		}
 		return $res;
 	}
 
-	private function _token_can_used($id) {
+	protected function _token_can_used($id) {
 		if(!$this->_file($this->_storage('interframework/tokens/'.$this->_get('static.tokens').'.txt'))) {
 			$this->_make_file_force($this->_storage('interframework/tokens/'.$this->_get('static.tokens').'.txt'), '');
 			return 1;
@@ -891,7 +1512,7 @@ class Signal {
 		}
 	}
 
-	public function _cryptchr($chr) {
+	protected function _cryptchr($chr) {
 		$array = [
 			'numbers' => [0,1,2,3,4,5,6,7,8,9],
 			'wordsupper' => ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z'],
@@ -905,7 +1526,7 @@ class Signal {
 		return $results;
 	}
 
-	public function _get_token() {
+	protected function _get_token() {
 
 		if($this->_isset('this.token')) {
 			return $this->_get('this.token');
@@ -921,7 +1542,7 @@ class Signal {
 			'A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z','0','1','2','3','4','5','6','7','8','9'
 		];
 
-		$token = $this->_string($this->_generate_unique_id($options), false);
+		$token = $this->_string($this->_generate_unique_id($options));
 
 		if($this->_token_can_used($token)) {
 			if($this->_file($token)) {
@@ -944,21 +1565,21 @@ class Signal {
 		]);
 	}
 
-	public function _unique_wordsupper($length) {
+	protected function _unique_wordsupper($length) {
 		return $this->_generate_unique_id([
 			'crypt' => $this->_cryptchr('wordsupper'),
 			'length' => $length
 		]);
 	}
 
-	public function _unique_numbers($length) {
+	protected function _unique_numbers($length) {
 		return $this->_generate_unique_id([
 			'crypt' => $this->_cryptchr('numbers'),
 			'length' => $length
 		]);
 	}
 
-	private function _generate_unique_id($options, $ci = 0) {
+	protected function _generate_unique_id($options, $ci = 0) {
 
 		if(!$this->_is_array($options)) {
 			$length = $options;
@@ -1005,11 +1626,11 @@ class Signal {
 		}
 	}
 
-	public function _acceptable($value) {
+	protected function _acceptable($value) {
 		return $this->_in_array($value, ['yes', 'on', '1', 1, true, 'true'], true) ? true : false;
 	}
 
-	public function _add_class($data = null) {
+	protected function _add_class($data = null) {
 		if(!$data) {
 			return $this;
 		}
@@ -1017,17 +1638,7 @@ class Signal {
 		return $this;
 	}
 
-	public function _string($str = null, $init = true) {
-		if($this->_is_init && $init) {
-			if($str === null) {
-				$str = $this->_all();
-			} else {
-				$str = $this->_get($str);
-			}
-		}
-		if($str === null) {
-			return '';
-		}
+	protected function _string($str) {
 		if($this->_is_array($str)) {
 			return $this->_export([
 				'value' => $str,
@@ -1039,7 +1650,7 @@ class Signal {
 		return (string)$str;
 	}
 
-	public function _array_to_string($object) {
+	protected function _array_to_string($object) {
 		return $this->_export([
 			'value' => $object,
 			'quote' => "'",
@@ -1048,31 +1659,31 @@ class Signal {
 		]);
 	}
 
-	public function _append($data) {
+	protected function _append($data) {
 		return $this->_append_after_tag($data);
 	}
 
-	public function _append_after_tag($data = null) {
+	protected function _append_after_tag($data = null) {
 		$this->_push('tag.append_after_tag', $data);
 		return $this;
 	}
 
-	public function _append_after_text($data = null) {
+	protected function _append_after_text($data = null) {
 		$this->_push('tag.append_after_text', $data);
 		return $this;
 	}
 
-	public function _append_before_tag($data = null) {
+	protected function _append_before_tag($data = null) {
 		$this->_push('tag.append_before_tag', $data);
 		return $this;
 	}
 
-	public function _append_before_text($data = null) {
+	protected function _append_before_text($data = null) {
 		$this->_push('tag.append_before_text', $data);
 		return $this;
 	}
 
-	public function _array_replace($defaults, $replaces, $recursive = false) {
+	protected function _array_replace($defaults, $replaces, $recursive = false) {
 		foreach($replaces as $key => $value) {
 			$key = $this->_lower($key);
 			if(!$this->_array_key($key, $defaults)) {
@@ -1091,7 +1702,7 @@ class Signal {
 		return $defaults;
 	}
 
-	public function _array_merge($defaults, $replaces, $recursive = false) {
+	protected function _array_merge($defaults, $replaces, $recursive = false) {
 		$i = 0;
 		$results = [];
 		foreach($defaults as $key => $value) {
@@ -1131,31 +1742,31 @@ class Signal {
 		return $results;
 	}
 
-	public function _array_sm($array, $count = 0, $current = 0, $first = 0) {
+	protected function _array_dimensional($array, $count = 0, $current = 0, $first = 0) {
 		if($first == 0) {
 			$count = $this->_count($array);
 		}
 	    if($count - 1 === $current) {
 	        $array = $array[$current];
 	    } else {
-	    	$array = [$array[$current] => $this->_array_sm($array, $count, $current + 1, 1)];
+	    	$array = [$array[$current] => $this->_array_dimensional($array, $count, $current + 1, 1)];
 	    }
 	    return $array;
 	}
 
-	public function _assets_images_url($url = '') {
-		return $this->_url('assets/img/'.$this->_to_url_s($url));
+	protected function _assets_images_url($url = '') {
+		return $this->_url('assets/img/'.$this->_to_urlsep($url));
 	}
 
-	public function _attr($attr, $data = null) {
+	protected function _attr($attr, $data = null) {
 		$this->_set('tag.attr.'.$attr, $data);
 		return $this;
 	}
 
-	private function _missout($path) {
+	protected function _missout($path) {
 		if(isset($path[0])) {
 			if($path[0] == 'admin') {
-				$this->_set('static.is_admin', 1);
+				$this->_set('static.is_'.$path[0], 1);
 				unset($path[0]);
 				$path = $this->_array_zero($path);
 			}
@@ -1163,69 +1774,66 @@ class Signal {
 		return $path;
 	}
 
-	private function _router() {
-
-		if($this->_ini('with_router')) {
-			$this->_module('router.brosta');
+	protected function _valve($key) {
+		$data = $this->_base($key);
+		$keys = $data['keys'];
+		$base = $data['base'];
+		$results = $this->_array_key_value($keys, $this->_ram[$base], true);
+		if(NOTHING === $results) {
+			$this->_fatal('undefined', 'index ( '.$key.' )');
 		}
+		return $results;
+	}
 
-		if($this->_route(0, 'install')) {
-			if($this->_include_exists('install')) {
-				$this->_include('install');
-			} else {
-				$this->_install('brosta.server');
-			}
-		}
+	protected function _verify_url($url) {
+		$url = $this->_explode($this->_urlsep(), $url);
+		$url = $this->_missout($url);
+		$url = $this->_implode($this->_urlsep(), $url);
+		$url = $url ? $url : $this->_urlsep();
+		return $url;
 
-		$user = $this->_interface([
-			'method' => 'login',
-			'username' => 'my_username',
-			'password' => 'my_password',
-			'roles' => 'admin|customer|editor',
-		]);
+	}
 
-		$path = $this->_path();
-		$path = $this->_explode($this->_url_s(), $path);
-		$path = $this->_missout($path);
-		$path = $this->_implode($this->_url_s(), $path);
-		$path = $path ? $path : $this->_url_s();
+	protected function _route($url, $controller = null, $callback = null) {
+		return $this->_router($this->_verify_url($url), 'security_code_here');
+	}
 
-		$this->_set('route', [
-			'args' => [],
-			'method' => 'index',
-			'controller' => 'desktop',
-		]);
+	protected function _router($url = null, $security = null) {
 
-		if($path && $path != $this->_url_s()) {
-			$path = $this->_explode($this->_url_s(), $path);
-			if($this->_in_array('index', $path)) {
+		if($url) {
+			$this->_include('_common/routes/web', [
+				'url' => $this->_verify_url($this->_path()),
+			]);
+		} else {
+
+			$url = $this->_verify_url($this->_path());
+
+			$this->_set('route', [
+				'args' => [],
+				'method' => 'index',
+				'controller' => 'desktop',
+			]);
+
+			$url = $this->_explode($this->_urlsep(), $url);
+			if($this->_in_array('index', $url)) {
 				$this->_set('response.status', 404);
 			} else {
-				if(isset($path[0])) {
-					$this->_set('route.controller', $path[0]);
-					unset($path[0]);
-					if(isset($path[1])) {
-						$this->_set('route.method', $path[1]);
-						unset($path[1]);
-						if(isset($path[2])) {
-							$this->_set('route.args', $this->_is_empty($path) ? false : $this->_array_zero($path));
+				if(isset($url[0])) {
+					$this->_set('route.controller', $url[0]);
+					unset($url[0]);
+					if(isset($url[1])) {
+						$this->_set('route.method', $url[1]);
+						unset($url[1]);
+						if(isset($url[2])) {
+							$this->_set('route.args', $this->_is_empty($url) ? false : $this->_array_zero($url));
 						}
 					}
 				}
 			}
 		}
-
-		if($this->_auth('read:wrire')) {
-			
-		}
-
 	}
 
-	public function _auth($options) {
-		return $this->_get('this.user');
-	}
-
-	public function _body_class($classes = '') {
+	protected function _body_class($classes = '') {
 		$classes = $this->_replace_spaces_with_one($classes);
 		foreach($this->_explode(' ', $classes) as $class) {
 			if(!$this->_in_array($class, $this->_get('this.bodyclass'))) {
@@ -1235,19 +1843,21 @@ class Signal {
 		return $this;
 	}
 
-	public function _dirsep() {
+	protected function _dirsep() {
 		return DIRECTORY_SEPARATOR;
 	}
 
-	public function _cache($file, $contents = null) {
-		$file = $this->_storage('interframework/cache/'.$this->_to_dirsep($file.'.'.$this->_get('static.cache.save_type')));
+	protected function _cache($file, $contents = null) {
+		$file = $this->_storage('interframework/cache/'.$this->_to_dirsep($file.'.html'));
     	if(!$this->_is_null($contents)) {
-    		if(!$this->_is_dir($dir = $this->_get_dir_file($file))) {
+    		if(!$this->_is_dir($dir = $this->_dir_file($file))) {
     			$this->_mkdir($dir);
     		}
     		if($this->_file($file)) {
     			$this->_delete_file($file);
     		}
+
+    		//print_r(debug_backtrace()[0]);
 			return $this->_make_file($file, $contents);
 		} else {
 			if($this->_file($file)) {
@@ -1257,17 +1867,20 @@ class Signal {
 		return '';
 	}
 
-	public function _checked() {
+	protected function _checked() {
 		$this->_set('tag.attr.checked', 'checked');
 		return $this;
 	}
 
-	public function _selected() {
+	protected function _selected() {
 		$this->_set('tag.attr.selected', 'selected');
 		return $this;
 	}
 
-	private function _chkeep() {
+	protected function _chkeep() {
+		if($this->_isset('this.keep.live')) {
+			return 1;
+		}
 		if(!$this->_is_empty($this->_get('this.keep'))) {
 			if($this->_isset('this.keep.attr')) {
 				if($this->_get('this.keep.attr.name') !== '') {
@@ -1284,42 +1897,48 @@ class Signal {
 		}
 	}
 
-	public function _class($data = '') {
+	protected function _class($data = '') {
 		$this->_set('tag.attr.class', $data);
 		return $this;
 	}
 
-	public function _class_separator_fix($class) {
+	protected function _class_separator_fix($class) {
 		return $this->_trim($this->_replace(['/', '.'], '\\', $class), '\\');
 	}
 
-	public function _component_exists($path) {
+	protected function _component_exists($path) {
 		return $this->_file($this->_assets_path($path));
 	}
 
-	public function _replace_between($start, $str, $end) {
-		return $this->_get($start, $str, $end);
-	}
-
-	public function _call_controller($controller) {
-		$controller = $this->_get_controller($this->_ucfirst($controller));
-		$method = $this->_get('route.method');
-		if(method_exists($controller, $method)) {
-			$this->_set('response.data', $controller->{$method}($this->_instance()));
-		} else {
-			$this->_set('response.status', 404);
+	protected function _ucfirst_bysep($sep, $string) {
+		$results = '';
+		$array = $this->_explode($sep, $string);
+		for($i=0;$i<$this->_count($array);$i++) {
+			if($results) {
+				$results.=$sep;
+			}
+			$results.=$this->_ucfirst($array[$i]);
 		}
+		return $results;
 	}
 
-	public function _get_public_path_from_host($str) {
+	protected function _get_public_path_from_host($str) {
 		return $this->_remove_prefix($this->_url(), $str);
 	}
 
-	private function _conclude() {
+	public function _view($view) {
+		$this->_set('view', $view);
+		return $this;
+	}
 
-		if($this->_ini('with_controller')) {
-			$this->_call_controller($this->_get('route.controller'));
-		}
+	protected function _with(array $with) {
+		$this->_set('with', $with);
+		return $this;
+	}
+
+	protected function _conclude() {
+
+		$this->_get_controller();
 
 		if($this->_get('response.status', 404)) {
 			$this->_set('route', [
@@ -1329,32 +1948,27 @@ class Signal {
 			]);
 		}
 
-		if($this->_ini('with_view')) {
-			$this->_set('view', $this->_to_dirsep($this->_get('route.controller').'/'.$this->_get('route.method')));
+		if($this->_ini('view')) {
+			if(!$this->_isset('view')) {
+				$this->_set('view', $this->_to_dirsep($this->_get('route.controller').'/'.$this->_get('route.method')));
+			}
 		}
 
-		if($this->_ini('with_view') && $this->_get('static.cache.from_cache') && $this->_is_cached($this->_get('view'))) {
+		if($this->_ini('view') && $this->_get('cache.from_cache') && $this->_is_cached($this->_get('view'))) {
 			$this->_set_text($this->_cache($this->_get('view')));
 		} else {
 
 			$this->_set_start_code_space_level(2);
-
-			if($this->_ini('with_view')) {
-				if($this->_include_exists('_common/ini')) {
-					$this->_include('_common/ini');
-				}
-			}
-
 			$this->_set_after_or_before('after');
 
-			if($this->_ini('with_view')) {
+			if($this->_ini('view')) {
 				if($this->_is_manual('root_view')) {
-					$this->_include($this->_get('manual.root_view'), $this->_get('response.data'));
+					$this->_include($this->_get('manual.root_view'), $this->_get('with'));
 				} else {
 					if($this->_include_exists($this->_get('view'))) {
-						$this->_include($this->_get('view'), $this->_get('response.data'));
+						$this->_include($this->_get('view'), $this->_get('with'));
 					} else {
-						$this->_fail('include', 'View file ( '.$this->_get('view').' ) not exists in ( '.$this->_template_path().' )');
+						$this->_fatal('include', 'View file ( '.$this->_get('view').' ) not exists in ( '.$this->_template_path().' )');
 					}
 				}
 			}
@@ -1369,17 +1983,18 @@ class Signal {
 			$this->_require('app.css');
 			$this->_require('app.js');
 
-			if($this->_ini('with_view')) {
+			if($this->_ini('view')) {
 				if($this->_include_exists('_common/resources')) {
 					$this->_include('_common/resources');
 				} else {
-					$this->_fail('file_not_exists', $this->_common_path('resources'.$this->_file_ext));
+					$this->_fatal('file_not_exists', $this->_common_path('resources.'.$this->_get('flammable.code_lng_ext')));
 				}
 			}
 
 			$this->_set_after_or_before('after');
+			$this->_body_class('cm-body with-header');
 
-			if($this->_ini('with_view')) {
+			if($this->_ini('view')) {
 				$this->_resources();
 			}
 
@@ -1390,16 +2005,15 @@ class Signal {
 				if($this->_is_string($contents)) {
 					$this->_set('response.text', $contents);
 				} else {
-					$this->_fail('argument', 'Server info: Response must be a type of string. You are given a type [ '.$this->_get_type($contents).' ] this is not supported from your system copyrights.');
+					$this->_fatal('argument', 'Server info: Response must be a type of string. You are given a type [ '.$this->_get_type($contents).' ] this is not supported from your system copyrights.');
 				}
 			} else {
-				$this->_fail('signal', 'NO SIGNAL');
+				$this->_fatal('signal', 'NO SIGNAL');
 			}
 		}
-		return 1;
 	}
 
-	public function _copy_dir($directory, $destination) {
+	protected function _copy_dir($directory, $destination) {
 
 		if(!$this->_is_dir($directory)) {
             return false;
@@ -1429,7 +2043,7 @@ class Signal {
 	    return true;
 	}
 
-	private function _certificate() {
+	protected function _certificate() {
 		if($this->_get('tag.tag') == 'untaged') {
 			return 1;
 		}
@@ -1535,42 +2149,44 @@ class Signal {
 		return 1;
 	}
 
-	public function _current_type_is(string $type) {
+	protected function _current_type_is(string $type) {
 		return $this->_get('static.doctype', $type);
 	}
 
-	public function _doctype(string $type = null) {
-		if($type === null && !$this->_isset('static.doctype')) {
-			return $this->_set('static.doctype', 'html');
-		}
+	protected function _doctype(string $type = null) {
 		if($type === null) {
-			return $this->_get('static.doctype');
+			if($this->_isset('static.doctype')) {
+				return $this->_get('static.doctype');
+			} else {
+				return $this->_set('static.doctype', 'html');
+			}
+		} else {
+			$this->_set('static.doctype', $type);
 		}
-		$this->_set('static.doctype', $type);
 		return $this;
 	}
 
-	public function _default_checked($data = '') {
+	protected function _default_checked($data = '') {
 		$this->_set('tag.defineds.default_checked', $data);
         return $this;
 	}
 
-	public function _default_selected($data = '') {
+	protected function _default_selected($data = '') {
 		$this->_set('tag.defineds.default_selected', $data);
         return $this;
 	}
 
-	public function _default_text($data = '') {
+	protected function _default_text($data = '') {
 		$this->_set('tag.defineds.default_text', $data);
         return $this;
 	}
 
-	public function _default_value($data = '') {
+	protected function _default_value($data = '') {
 		$this->_set('tag.defineds.default_value', $data);
         return $this;
 	}
 
-	public function _delete_path($directory, $preserve = false) {
+	protected function _delete_path($directory, $preserve = false) {
 		if(!$this->_is_dir($directory)) {
             return false;
         }
@@ -1589,27 +2205,27 @@ class Signal {
         return true;
 	}
 
-	public function _dot_to_underscore($str) {
+	protected function _dot_to_underscore($str) {
 		return $this->_trim($this->_replace('.', '_', $str), '_');
 	}
 
-	public function _underscore_to_dot($str) {
+	protected function _underscore_to_dot($str) {
 		return $this->_trim($this->_replace('_', '.', $str), '.');
 	}
 
-	public function _dot_to_dirsep($str) {
+	protected function _dot_to_dirsep($str) {
 		return $this->_trim($this->_replace('.', $this->_dirsep(), $str), $this->_dirsep());
 	}
 
-	public function _dot_to_url_s($str) {
-		return $this->_trim($this->_replace('.', $this->_url_s(), $str), $this->_url_s());
+	protected function _dot_to_urlsep($str) {
+		return $this->_trim($this->_replace('.', $this->_urlsep(), $str), $this->_urlsep());
 	}
 
-	public function _echo($string) {
-		echo($string);
+	protected function _echo(string $text) {
+		echo($text);
 	}
 
-	public function _escape($str) {
+	protected function _escape($str) {
 		$js_escape = [
 			"\r" => '\r',
 			"\n" => '\n',
@@ -1621,7 +2237,7 @@ class Signal {
         return $this->_str_trans($str, $js_escape);
 	}
 
-	public function _unescape($str) {
+	protected function _unescape($str) {
 		$js_escape = [
 			'\r' => "\r",
 			'\n' => "\n",
@@ -1633,7 +2249,7 @@ class Signal {
         return $this->_str_trans($str, $js_escape);
 	}
 
-	public function _export(array $options = []) {
+	protected function _export(array $options = []) {
 		$results = "";
 		if($options['type'] == 'json') {
 			$results = $this->_get_exported_string($this->_array_merge([
@@ -1648,7 +2264,7 @@ class Signal {
 		elseif($options['type'] == 'array') {
 
 			if(!$this->_is_array($options['value'])) {
-				$this->_fail('export_type', 'unexpected export: array to string');
+				$this->_fatal('export_type', 'unexpected export: array to string');
 			}
 
 			$results = $this->_get_exported_string($this->_array_merge([
@@ -1664,36 +2280,42 @@ class Signal {
 			], $options));
 			return trim($results);
 		} else {
-			$this->_fail('file_type', 'unknown file type for export');
+			$this->_fatal('file_type', 'unknown file type for export');
 		}
 	}
 
-	public function _fail($place, $msg = null) {
-
-		if($msg) {
-			$msg = $place.' : '.$msg;
-		}
-
-		$this->_echo($msg);
+	public function _fatal($key, $text = null) {
+		$this->_echo($this->_lng('fatal.'.$key, $text));
 		$this->_exit();
 	}
 
-	public function _file_append_to_top($file, $contents) {
+	public function _lng($key, $text = null) {
+		$text = $text ? $text : $key;
+		if(!$this->_isset('static.lng.'.$key)) {
+			$this->_set('static.lng.'.$key, $this->_replace('_', ' ', $text));
+		}
+		return $this->_get('static.lng.'.$key);
+	}
+
+
+	protected function _file_append_to_top($file, $contents) {
 		return $this->_fwrite($file, $contents.$this->_file_get_contents($file));
 	}
 
-	public function _final(int $reset = null) {
+	protected function _final(int $reset = null) {
 
 		if($reset == null) {
 			$reset = 0;
 		}
 
 		if($this->_has_more_opened_tags()) {
-			$this->_fail('syntax', 'You have more opened tags than you have closed.');
+			$this->_fatal('syntax', 'You have more opened tags than you have closed.');
 		}
 		if($this->_has_more_closed_tags()) {
-			$this->_fail('syntax', 'You have more closed tags than you have opened.');
+			$this->_fatal('syntax', 'You have more closed tags than you have opened.');
 		}
+					
+		//	print_r($this->_get('this')); exit;
 
 		$items = $this->_get_nested_items();
 
@@ -1704,14 +2326,18 @@ class Signal {
 		$document = $this->_build_document($items);
 
 		if($this->_trim($document)) {
-			if($this->_ini('with_view') && $this->_get('static.cache.recache')) {
-				$this->_cache($this->_get('view'), $document);
+			if($this->_ini('view')) {
+				if($this->_ini('local')) {
+					if($this->_get('cache.recache')) {
+						$this->_cache($this->_get('view'), $document);
+					}
+				}
 			}
 		}
 		return $document;
 	}
 
-	public function _fix_type($value, $level = 0) {
+	protected function _fix_type($value, $level = 0) {
 		$type = gettype($value);
 		$type = $this->_lower($type);
 		switch($type) {
@@ -1747,11 +2373,11 @@ class Signal {
 		return $value;
 	}
 
-	public function _items_length() {
+	protected function _items_length() {
 		return $this->_get('this.count');
 	}
 
-	public function _class_get_reflection($instance) {
+	protected function _class_get_reflection($instance) {
 		$class = new ReflectionClass($instance);
 		$name = $class->getName();
 		$in_namespace = $class->inNamespace() ? 1 : 0;
@@ -1766,13 +2392,14 @@ class Signal {
 
 		return [
 			'name' => $name,
+			'in_class' => 1,
 			'in_namespace' => $in_namespace,
 			'namespace_name' => $namespace_name,
 			'namespace_name_with_class' => $namespace_name_with_class,
 		];
 	}
 
-	public function _class_get_properties($instance) {
+	protected function _class_get_properties($instance) {
 
 		$class = new ReflectionClass($instance);
 		$class_name = get_class($instance);
@@ -1802,7 +2429,7 @@ class Signal {
 			}
 
 			$value = $real->isDefault() ? $real->getValue($instance) : NOTHING;
-			if($value instanceof Signal || $value instanceof Diamesolavitis) {
+			if($value instanceof Signal || $value instanceof Manager) {
 				$value = NOTHING;
 			}
 
@@ -1816,7 +2443,7 @@ class Signal {
 		return $results;
 	}
 
-	public function _class_get_methods($instance) {
+	protected function _class_get_methods($instance) {
 		$class = new ReflectionClass($instance);
 		$methods = $class->getMethods();
 		//sort($methods);
@@ -1874,7 +2501,7 @@ class Signal {
 		return $results;
 	}
 
-	public function _class_get_as_array($instance) {
+	protected function _class_to_array($instance) {
 		if($this->_is_string($instance)) {
 			$instance = new $instance;
 		}
@@ -1884,7 +2511,7 @@ class Signal {
 		return $app;
 	}
 
-	private function _get_control_chars($code = null, $type = 'symbol') {
+	protected function _get_control_chars($code = null, $type = 'symbol') {
 		$codes =  [
 			0 => [
 				'hex' => '0',
@@ -2184,7 +2811,7 @@ class Signal {
 			return $code == null ? $codes : $codes[$code][$type];
 	}
 
-	public function _get_database_names(array $op = null) {
+	protected function _get_database_names(array $op = null) {
 		$results = [];
 		$files = $this->_get_paths_only($this->_database_path());
 		for($i=0;$i<$this->_count($files);$i++) {
@@ -2232,14 +2859,14 @@ class Signal {
 		return $results;
 	}
 
-	public function _get_database_names_with_tables($keyed = 0) {
-		return $this->_get_database_names([
+	protected function _get_database_names_with_tables($keyed = 0) {
+		return $this->_interface($this->_get_database_names([
 			'with_tables' => 1,
 			'keyed' => $keyed
-		]);
+		]));
 	}
 
-	private function _get_database_names_with_tables_and_data($keyed = 0) {
+	protected function _get_database_names_with_tables_and_data($keyed = 0) {
 		return $this->_get_database_names([
 			'with_tables' => 1,
 			'with_tables_data' => 1,
@@ -2247,9 +2874,9 @@ class Signal {
 		]);
 	}
 
-	public function _get_database_structure(string $env) {
+	protected function _get_database_structure(string $name) {
 		$results = [];
-		$array = $this->_explode_lines($this->_file_get_contents($this->_database_path($env.'/structure.txt')));
+		$array = $this->_explode_lines($this->_file_get_contents($this->_database_path($name.'/structure.txt')));
 		for($i=0;$i<$this->_count($array);$i++) {
 			$item = $this->_explode('=', $array[$i]);
 			if($item[0] == 'tables') {
@@ -2261,18 +2888,18 @@ class Signal {
 		return $results;
 	}
 
-	public function _get_database_table_columns($database, $table) {
+	protected function _get_database_table_columns($database, $table) {
 		$results = [];
-		$data = $this->_get_database_table_config_array($database, $table);
+		$data = $this->_get_database_table_config($database, $table);
 		for($i=0;$i<$this->_count($data);$i++) {
 			$results[] = $data[$i]['name'];
 		}
 		return $results;
 	}
 
-	public function _get_database_table_config_array(string $database, string $table, array $opts = []) {
+	protected function _get_database_table_config(string $database, string $table, array $opts = []) {
 		$results = [];
-		$data = $this->_explode_lines($this->_get_database_table_config_string($database, $table));
+		$data = $this->_explode_lines($this->_get_database_table_config($database, $table));
 		for($i=0;$i<$this->_count($data);$i++) {
 			$item = $this->_explode(':', $data[$i]);
 			$results[$i] = [
@@ -2284,11 +2911,11 @@ class Signal {
 		return $results;
 	}
 
-	public function _get_database_table_config_string($database, $table) {
+	protected function _get_database_table_config_string($database, $table) {
 		return $this->_file_get_contents($this->_database_path($database.'/'.$table.'/structure.txt'));
 	}
 
-	public function _get_database_table_data($database, $tables) {
+	protected function _get_database_table_data($database, $tables) {
 		$results = [];
 		if(!$this->_is_array($tables)) {
 			$tables = [$tables];
@@ -2296,7 +2923,7 @@ class Signal {
 		$allow = $this->_get_database_tables($database);
 		for($i=0;$i<$this->_count($tables);$i++) {
 			if($this->_in_array($tables[$i], $allow)) {
-				$dbts = $this->_get_database_table_config_array($database, $tables[$i]);
+				$dbts = $this->_get_database_table_config($database, $tables[$i]);
 				$dbtc = $this->_explode_lines($this->_get_database_table_data_string($database, $tables[$i]));
 				for($b=0;$b<$this->_count($dbtc);$b++) {
 					$tmp = [];
@@ -2307,33 +2934,33 @@ class Signal {
 					$results[] = $tmp;
 				}
 			} else {
-				$this->_fail('table', 'Table [ '.$table.' ] not exists in database [ '.$database.' ]');
+				$this->_fatal('table', 'Table [ '.$table.' ] not exists in database [ '.$database.' ]');
 			}
 		}
 		return $results;
 	}
 
-	public function _get_database_table_data_all($database) {
+	protected function _get_database_table_data_all($database) {
 		return $this->_get_database_table_data($database, $this->_get_database_tables($database));
 	}
 
-	public function _get_database_table_data_string($database, $table) {
+	protected function _get_database_table_data_string($database, $table) {
 		return $this->_file_get_contents($this->_database_path($database.'/'.$table.'/data.txt'));
 	}
 
-	public function _get_database_tables(string $database) {
+	protected function _get_database_tables(string $database) {
 		return $this->_get_database_structure($database)['tables'];
 	}
 
-	public function _get_date_time_zone($zone) {
+	protected function _get_date_time_zone($zone) {
 		return new DateTimeZone($zone);
 	}
 
-	public function _get_dir_file($file) {
+	protected function _dir_file($file) {
 		return pathinfo($file, PATHINFO_DIRNAME);
 	}
 
-	private function _get_exported_string($list = []) {
+	protected function _get_exported_string($list = []) {
 		$ready = [
 			'first' => array_key_exists('first', $list) ? $list['first'] : 0,
 			's' => array_key_exists('s', $list) ? $list['s'] : "",
@@ -2485,29 +3112,11 @@ class Signal {
 		return $export['var'];
 	}
 
-	public function _get_items() {
+	protected function _get_items() {
 		return $this->_get('this.items');
 	}
 
-	private function _get_this() {
-		return $this->_get('this');
-	}
-
-	public function _get_local_array($where) {
-		$key = $this->_to_base($key);
-		$path = $key['base'];
-		$rest = $key['keys'];
-		return $this->_get_returned_array_file('arrays/'.$path, $rest);
-	}
-
-	public function _get_form_fields_local($key, $default = null) {
-		$key = $this->_to_base($key);
-		$path = $key['base'];
-		$rest = $key['keys'];
-		return $this->_get_returned_array_file('forms/'.$path, $rest);
-	}
-
-	public function _get_month($month) {
+	protected function _get_month($month) {
 		$months = [
 			1 => 'January',
 			2 => 'February',
@@ -2525,15 +3134,15 @@ class Signal {
 		return $months[$month];
 	}
 
-	public function _get_name_last($str) {
+	protected function _get_name_last($str) {
 		return basename($str);
 	}
 
-	public function _get_nested_items() {
+	protected function _get_nested_items() {
 		return $this->_nested($this->_get_items());
 	}
 
-	public function _get_non_alpha_numeric_characters() {
+	protected function _get_non_alpha_numeric_characters() {
 		return [
 			"!",
 			"@",
@@ -2565,48 +3174,31 @@ class Signal {
 		];
 	}
 
-	public function _get_paths($path) {
+	protected function _get_paths($path) {
 		return glob($path.'\*', GLOB_ONLYDIR);
 	}
 
-	private function _get_paths_only($path) {
+	protected function _get_paths_only($path) {
 		return glob($path.'\*', GLOB_ONLYDIR);
 	}
 
-	public function _get_returned_array_file($file, $where) {
-		$fileok = 0;
-		for($i=0;$i<$this->_count($where);$i++) {
-			if(!$fileok) {
-				if($this->_is_file($this->_common_path($file.$this->_file_ext))) {
-					$fileok = 1;
-					$data = $this->_require_local($this->_common_path($file.$this->_file_ext));
-				}
-				$file.=$this->_dirsep().$where[$i];
-			} 
-			if($fileok) {
-				$data = $data[$where[$i]];
-			}
-		}
-		return $data;
-	}
-
-	public function _get_time_in_milliseconds() {
+	protected function _get_time_in_milliseconds() {
 		return time();
 	}
 
-	public function _get_type($element) {
+	protected function _get_type($element) {
 		return gettype($element);
 	}
 
-	private function _has_more_opened_tags() {
+	protected function _has_more_opened_tags() {
 		return $this->_get('static.unclosed_tags') > 0;
 	}
 
-	private function _has_more_closed_tags() {
+	protected function _has_more_closed_tags() {
 		return $this->_get('static.unclosed_tags') < 0;
 	}
 
-	private function _get_unknown_chars($code = null, $type = 'symbol') {
+	protected function _get_unknown_chars($code = null, $type = 'symbol') {
 		$codes =  [
 			940 => [
 				'hex' => '3ac',
@@ -2617,15 +3209,15 @@ class Signal {
 		return $code == null ? $codes : $codes[$code][$type];
 	}
 
-	public function _get_body_class() {
+	protected function _get_body_class() {
 		return $this->_implode(' ', $this->_get('this.bodyclass'));
 	}
 
-	public function _get_include_contents($file) {
-		return $this->_file_get_contents($this->_template_path($file.$this->_file_ext));
+	protected function _get_include_contents($file) {
+		return $this->_file_get_contents($this->_template_path($file.'.'.$this->_get('flammable.code_lng_ext')));
 	}
 
-	public function _get_spaces_by_level(int $number, string $operator) {
+	protected function _get_spaces_by_level(int $number, string $operator) {
 		$results = '';
 		if($number > 0) {
 			for($i=0; $i < $number; $i++) {
@@ -2635,63 +3227,59 @@ class Signal {
 		return $results;
 	}
 
-	public function _header($str) {
+	protected function _header($str) {
 		return header($str);
 	}
 
-	public function _http_build_query($data, $separator = '&', $prefix = '') {
+	protected function _http_build_query($data, $separator = '&', $prefix = '') {
 		return http_build_query($data, $prefix, $separator);
 	}
 
-	public function _include_exists($file) {
-		return $this->_file($this->_template_path($file.$this->_file_ext));
+	protected function _include_exists($file) {
+		return $this->_file($this->_template_path($file.'.'.$this->_get('flammable.code_lng_ext')));
 	}
 
-	public function _is_double($element) {
+	protected function _is_double($element) {
 		return is_double($element);
 	}
 
-	public function _is_file($file) {
+	protected function _is_file($file) {
 		return is_file($file);
 	}
 
-	public function _is_float($element) {
+	protected function _is_float($element) {
 		return is_float($element);
 	}
 
-	public function _is_integer($element) {
+	protected function _is_integer($element) {
 		return is_integer($element);
 	}
 
-	public function _is_numeric($element) {
+	protected function _is_numeric($element) {
 		return is_numeric($element);
 	}
 
-	public function _is_admin() {
+	protected function _is_admin() {
 		return $this->_get('static.is_admin', 1);
 	}
 
-	public function _is_cached($file) {
-		return $this->_file($this->_storage('interframework/cache/'.$this->_to_dirsep($file.'.'.$this->_get('static.cache.save_type'))));
+	protected function _is_cached($file) {
+		return $this->_file($this->_storage('interframework/cache/'.$this->_to_dirsep($file.'.'.$this->_get('cache.save_type'))));
 	}
 
-	public function _is_closure($callback) {
+	protected function _is_closure($callback) {
 		return is_object($callback) && ($callback instanceof Closure);
 	}
 
-	public function _is_int($element) {
+	protected function _is_int($element) {
 		return $this->_is_integer($element);
 	}
 
-	public function _is_manual($key) {
-		return $this->_isset('manual.'.$key) && $this->_get('manual.'.$key);
-	}
-
-	public function _is_same($a, $b) {
+	protected function _is_same($a, $b) {
 		return $this->_get($a, $this->_get($b));
 	}
 
-	private function _load_components($types) {
+	protected function _load_components($types) {
 		if(!$this->_is_array($types)) {
 			$types = [$types];
 		}
@@ -2720,7 +3308,7 @@ class Signal {
 		$this->_set_after_or_before('after');
 	}
 
-	private function _load_styles() {
+	protected function _load_styles() {
 		foreach(['before', 'after'] as $place) {
 			foreach($this->_get('this.resources.'.$place.'.style') as $style) {
 				$this->_tag('style')->_text($style)->_tag();
@@ -2728,7 +3316,7 @@ class Signal {
 		}
 	}
 
-	private function _load_the_scripts_components() {
+	protected function _load_the_scripts_components() {
 		if(!$this->_isset('settings.scripts')) {
 			foreach($this->_get('this.resources.after.scripts') as $ajavascript) {
 				$this->_tag('script')->_attr('preload', true)->_text($ajavascript)->_tag();
@@ -2740,21 +3328,27 @@ class Signal {
 		return $this;
 	}
 
-	public function _log($msg) {
+	protected function _log($msg) {
 		$logs = $this->_get_time()." : ".$msg."\n";
 		$logs.= $this->_file_get_contents($this->_storage('interframework/logs/log.txt'));
 		$this->_fwrite($this->_storage('interframework/logs/log.txt'), $logs);
 	}
 
-	public function _make_include($file, $contents = '') {
-		return $this->_make_file($this->_template_path($file), $contents);
+	protected function _make_include($file, $contents = '') {
+		if(!$this->_make_file_force($this->_template_path($file).'.'.$this->_get('flammable.code_lng_ext'), $contents)) {
+			$this->_fatal('connection', 'can\'t connect.');
+		}
 	}
 
-	public function _manual($key, $value = null) {
+	protected function _manual($key, $value = null) {
 		return $this->_set('manual.'.$key, $value === null ? 1 : $value);
 	}
 
-	public function _mb_str_split($str) {
+	protected function _is_manual($key) {
+		return $this->_isset('manual.'.$key) && $this->_get('manual.'.$key);
+	}
+
+	protected function _mb_str_split($str) {
 		$results = [];
 	    foreach(str_split($str) as $char) {
 	    	if(!$this->_in_array($char, $results)) {
@@ -2764,7 +3358,7 @@ class Signal {
 	    return $results;
 	}
 
-	public function _mkdir($dir, $mode = 493, $recursive = true) {
+	protected function _mkdir($dir, $mode = 493, $recursive = true) {
 		if(!$this->_is_dir($dir)) {
 			if(!mkdir($dir, $mode, $recursive)) {
 				return false;
@@ -2773,14 +3367,17 @@ class Signal {
 		return true;
 	}
 
-	public function _mkdirs(array $array, $force = false, $path = '') {
+	protected function _mkdirs(array $array, $force = false, $path = '') {
 		$path = $path ? $path.$this->_dirsep() : '';
 		foreach($array as $row) {
 			if($this->_mkdir($path.$row['name'], isset($row['mode']) ? $row['mode'] : 0777)) {
 				if(isset($row['files']) && !empty($row['files'])) {
 					foreach($row['files'] as $file) {
 						$ready_file = $path.$row['name'].$this->_dirsep().$file['name'];
-						$ready_contents = array_key_exists('contents', $file) ? $file['contents'] : '';
+						$ready_contents = '';
+						if(array_key_exists('contents', $file)) {
+							$ready_contents = $this->_is_string($file['contents']) ? $file['contents'] : $file['contents']();
+						}
 						if($force) {
 							$this->_make_file_force($ready_file, $ready_contents);
 						} else {
@@ -2792,22 +3389,31 @@ class Signal {
 					$this->_mkdirs($row['subfolders'], $force, $path.$row['name']);
 				}
 			} else {
-				$this->_fail('make_directory', 'Cannot make a directory: '.$path.$row['name']);
+				$this->_fatal('make_directory', 'Cannot make a directory: '.$path.$row['name']);
 			}
         }
         return 1;
 	}
 
-	public function _make_file($file, $contents = '', $lock = false) {
-		if(!$this->_file($file)) {
-			return $this->_fwrite($file, $contents, $lock);
+	protected function globals($name) {
+		if(!$this->_isset('globals')) {
+			foreach($this->_globals('globals.'.$name) as $key => $value) {
+				$this->_set('globals.'.$name, $GLOBALS[$name]);
+			}
 		}
-		return 0;
+		return $this->_isset('globals') ? $this->_globals('globals.'.$name) : $this->_set('globals.'.$name, $GLOBALS[$name]);
 	}
 
-	public function _make_file_force($file, $contents = '') {
+	protected function _make_file($file, $contents = '', $lock = false) {
+		if($this->_file($file)) {
+			$this->_fatal('files', 'File ( '.$file.' ) already exists');
+		}
+		return $this->_fwrite($file, $contents, $lock);
+	}
+
+	protected function _make_file_force($file, $contents = '') {
 		if(!$this->_file($file)) {
-			$dir = $this->_get_dir_file($file);
+			$dir = $this->_dir_file($file);
 	   		if(!$this->_is_dir($dir)) {
 	   			$this->_mkdir($dir);
 	   		}
@@ -2821,44 +3427,19 @@ class Signal {
 	   	return 0;
 	}
 
-	private function _get_fprefix() {
+	protected function _get_fprefix() {
 		return '_';
 	}
 
-	public function _monitor($contents = '') {
-
-		$this->_text($this->_get('static.monitor.top_comment'));
-		$this->_tag('doctype')->_attr('html')->_tag();
-		$this->_tag('html')->_attr('class', 'cm-html')->_attr('lang', $this->_get('static.monitor.doctype_lang'));
-			$this->_tag('head');
-				$this->_tag('meta')->_attr('charset', $this->_get('static.monitor.meta.charset'))->_tag();
-				$this->_tag('meta')->_attr('name', 'viewport')->_attr('content', 'width=device-width, initial-scale=1, maximum-scale=1.0')->_tag();
-				$this->_tag('meta')->_attr('httpequiv', 'Content-Type')->_attr('content', 'text/html; charset=UTF-8')->_tag();
-				$this->_tag('meta')->_attr('id', 'domain')->_attr('content', 'My domain')->_tag();
-				$this->_tag('title')->_text($this->_get('title'))->_tag();
-				$this->_tag('link')->_attr('rel', 'icon')->_attr('type', 'image/png')->_attr('href', $this->_assets_url('img/favicon.png'))->_tag();
-				$this->_load_components('css');
-				$this->_load_styles();
-			$this->_tag();
-			$this->_tag('body')->_attr('class', 'cm-body');
-				$this->_text($contents, 1);
-				$this->_load_components('js');
-				$this->_load_the_scripts_components();
-			$this->_tag();
-		$this->_tag();
-
-		return 1;
-	}
-
-	public function _countdown($time, $key) {
+	protected function _countdown($time, $key) {
 		$this->_set('countdown_'.$key, $time);
 	}
 
-	public function _chronometer($time, $key) {
+	protected function _chronometer($time, $key) {
 		$this->_set('chronometer_'.$key, $time);
 	}
 
-	public function _get_time() {
+	protected function _get_time() {
 
 		$datetime = new DateTime("now", $this->_get_date_time_zone('Europe/Athens'));
 		$datetime->setTimestamp($this->_get_time_in_milliseconds());
@@ -2892,7 +3473,7 @@ class Signal {
 		];
 	}
 
-	public function _nested(array $data = []) {
+	protected function _nested(array $data = []) {
 	    $prev = 0;
 		$waiting = [];
 	    for($i=0;$i<count($data);$i++) {
@@ -2917,18 +3498,18 @@ class Signal {
 	    return $results;
 	}
 
-	public function _new_line() {
+	protected function _new_line() {
 		return "\n";
 	}
 
-	public function _enter($nums = 1) {
+	protected function _enter($nums = 1) {
 		for($i=0;$i<$nums;$i++) {
 			$this->_tag('untaged')->_attr('lined', 1)->_tag();
 		}
 		return $this;
 	}
 
-	public function _new_tag() {
+	protected function _new_tag() {
 		return [
 			'doctype' 					=> '',
 			'defineds' 					=> [],
@@ -2953,24 +3534,16 @@ class Signal {
 		];
 	}
 
-	public function _get_uri_paths() {
+	protected function _get_uri_paths() {
 		return $this->_get('static.url_paths');
 	}
 
-	public function _route(int $num = 0, string $name = null) {
-		if($name === null) {
-			return $this->_isset('static.url_paths.'.$num);
-		}
-
-		return $this->_get('static.url_paths.'.$num, $name);
-	}
-
-	public function _posted() {
+	protected function _posted() {
 		$this->_set('tag.defineds.posted', 1);
         return $this;
 	}
 
-	private function _process_text_to_ascii($string, &$offset) {
+	protected function _process_text_to_ascii($string, &$offset) {
 		$code = ord($this->_substr($string, $offset, 1)); 
 	    if($code >= 128) {
 	        if($code < 224) {
@@ -2999,7 +3572,7 @@ class Signal {
 	    return $code;
 	}
 
-	public function _text_to_ascii($text) {
+	protected function _text_to_ascii($text) {
 		$results = "";
 		$offset = 0;
 		while($offset >= 0) {
@@ -3011,78 +3584,70 @@ class Signal {
 		return $results;
 	}
 
-	public function _root(string $path = '') {
-		if($path === '') {
-			if($this->_isset('static.root')) {
-				$path = $this->_get('static.root');
-			} else {
-				$path = $this->_set('static.root', $this->_rtrim($path, $this->_dirsep()));
-			}
-		} else {
-			if($this->_isset('static.root')) {
-				$path = $this->_get('static.root');
-			} else {
-				$path = $this->_set('static.root', $this->_rtrim($path, $this->_dirsep()));
-			}
-		}
-
-		return $path;
-	}
-
-	public function _disk(string $path = '') {
-		$root = $this->_root();
-		if($path) {
-			$root = $root.$this->_dirsep().$this->_to_dirsep($path);
-		}
-		return $this->_lower($root);
-	}
-
 	public function _path() {
 		return $this->_get('static.request.server.request_path');
 	}
 
-	public function _public_path($str = '') {
+	protected function _public_path($str = '') {
 		return $this->_disk('public/'.$str);
 	}
 
-	public function _database_path($str = '') {
+	protected function _database_path($str = '') {
 		return $this->_storage('Interframework/Database/'.$str);
 	}
 
-	private function _common_path($str = '') {
+	protected function _common_path($str = '') {
 		return $this->_template_path('_common/'.$str);
 	}
 
-	public function _template_path($str = '') {
-		return $this->_disk('views/'.$this->_get_template().'/'.$str);
+	protected function _template_path($str = '') {
+		if($this->_is_admin()) {
+			$str ='admin/'.$str;
+		}
+		return $this->_views_path($this->_get_template().'/'.$str);
 	}
 
-	public function _assets_path($str = '') {
+	protected function _assets_path($str = '') {
 		return $this->_public_path('assets/'.$str);
 	}
 
-	public function _app_path($str = '') {
-		return $this->_disk('app/'.$str);
+	protected function _no_disk($str) {
+		if($this->_isset('static.no_disk.'.$this->_slash_to_dot($this->_to_dirsep($str)))) {
+			return $this->_get('static.no_disk.'.$this->_slash_to_dot($this->_to_dirsep($str)));
+		}
+		return $this->_set('static.no_disk.'.$this->_slash_to_dot($this->_to_dirsep($str)), $this->_trim($this->_replace($this->_disk(), '', $this->_to_dirsep($str)), $this->_dirsep()));
 	}
 
-	public function _provider_path($str = '') {
-		return $this->_disk('provider/'.$str);
+	protected function _app_path($str = '') {
+		return $this->_disk($this->_get('flammable.paths.app').'/'.$str);
 	}
 
-	public function _controllers_path($str = '') {
-		return $this->_app_path('controllers/'.$str);
+	protected function _provider_path($str = '') {
+		return $this->_disk($this->_get('flammable.paths.provider').'/'.$str);
 	}
 
-	public function _views_path($str = '') {
-		return $this->_disk('views/'.$str);
+	protected function _config_path($str = '') {
+		return $this->_disk($this->_get('flammable.paths.config').'/'.$str);
 	}
 
-	private function _require_text_script($script) {
+	protected function _controllers_path($str = '') {
+		return $this->_app_path($this->_get('flammable.paths.controllers').'/'.$str);
+	}
+
+	protected function _boot_path($str = '') {
+		return $this->_disk($this->_get('flammable.paths.boot').'/'.$str);
+	}
+
+	protected function _views_path($str = '') {
+		return $this->_disk($this->_get('flammable.paths.views').'/'.$str);
+	}
+
+	protected function _require_text_script($script) {
 		$this->_push('this.resources.'.$this->_get('after_or_before').'.scripts', $script);
 		return $this;
 	}
 
-	private function _resources() {
+	protected function _resources() {
 		if($this->_get('view')) {
 			$css = 'views/'.$this->_get('view').'.css';
 			$js = 'views/'.$this->_get('view').'.js';
@@ -3103,7 +3668,7 @@ class Signal {
 		}
 	}
 
-	public function _ascii_to_text($contents, $callback = null) {
+	protected function _ascii_to_text($contents, $callback = null) {
 
 		if(!$callback) {
 			$callback = function($output) {
@@ -3117,7 +3682,7 @@ class Signal {
 		return $results->contents;
 	}
 
-	private function _character($output) {
+	protected function _character($output) {
 		$output->b = $output->a;
 		$output->b_o = $output->a_o;
 		if($output->decimal >= 0 && $output->decimal <= 127) {
@@ -3204,7 +3769,7 @@ class Signal {
 		return $output;
 	}
 
-	private function _get_ascii_options($input, $callback) {
+	protected function _get_ascii_options($input, $callback) {
 		$output = new stdClass;
 		$output->callback										= $callback;
 		$output->tmp											= '';
@@ -3318,7 +3883,7 @@ class Signal {
 		return $output;
 	}
 
-	private function _ascii_process($output) {
+	protected function _ascii_process($output) {
 		$i=0;
 		if($output->input) {
 
@@ -3337,7 +3902,7 @@ class Signal {
 		return $output;
 	}
 
-	private function _parse($output) {
+	protected function _parse($output) {
 		if($output->isString) {
 			$m = '_gg_'.$output->type.'_string';
 		} else {
@@ -3346,165 +3911,165 @@ class Signal {
 		return $this->$m($output);
 	}
 
-	private function _gg_alpha($output) {
+	protected function _gg_alpha($output) {
 		$output->contents.=$output->a_o;
 		return $output;
 	}
 
-	private function _gg_alpha_string($output) {
+	protected function _gg_alpha_string($output) {
 		$output->contents.=$output->a_o;
 		return $output;
 	}
 
-	private function _gg_control($output) {
+	protected function _gg_control($output) {
 		$output->contents.=$output->a_o;
 		return $output;
 	}
 
-	private function _gg_control_string($output) {
+	protected function _gg_control_string($output) {
 		$output->contents.=$output->a_o;
 		return $output;
 	}
 
-	private function _gg_number($output) {
+	protected function _gg_number($output) {
 		$output->contents.=$output->a_o;
 		return $output;
 	}
 
-	private function _gg_number_string($output) {
+	protected function _gg_number_string($output) {
 		$output->contents.=$output->a_o;
 		return $output;
 	}
 
-	private function _gg_symbol($output) {
+	protected function _gg_symbol($output) {
 		$output->contents.=$output->a_o;
 		return $output;
 	}
 
-	private function _gg_symbol_string($output) {
+	protected function _gg_symbol_string($output) {
 		$output->contents.=$output->a_o;
 		return $output;
 	}
 
-	private function _bind($callback, $obj) {
+	protected function _bind($callback, $obj) {
 		return Closure::bind($callback, $obj);
 	}
 
-	private function _instance($key = 'guest') {
-		return $this->_new_class('Diamesolavitis', [$key]);
-	}
-
-	public function _stop() {
-
-		$this->_startup('boot');
-
-		foreach($this->_get('this.on.construct') as $callback) {
-			$callback();
-		}
-
-		if($this->_conclude()) {
-			$this->_echo($this->_get('response.text'));
-		}
-	}
-
-	public function _set_after_or_before($switch) {
+	protected function _set_after_or_before($switch) {
 		$this->_set('after_or_before', $switch);
 	}
 
-	public function _set_start_code_space_level($level) {
+	protected function _set_start_code_space_level($level) {
 		return $this->_set('this.start_code_space_level', $level);
 	}
 
-	public function _get_start_code_space_level() {
+	protected function _get_start_code_space_level() {
 		return $this->_get('this.start_code_space_level');
 	}
 
-	public function _my_space($num) {
+	protected function _my_space($num) {
 		$this->_set('tag.my_space', $num);
 		return $this;
 	}
 
-	public function _fixed_space($num) {
+	protected function _fixed_space($num) {
 		$this->_set('static.fixed_space', $num);
 		return $this;
 	}
 
-	public function _set_text($text) {
+	protected function _set_text($text) {
 		$this->_set('text', $text);
 	}
 
-	public function _set_type($type, $value) {
+	protected function _set_type($type, $value) {
 		switch($type) {
 			case'int':
 				$value = (int)$value;
 			break;
 			case'string':
-				$value = $this->_string($value, false);
+				$value = $this->_string($value);
 			break;
 		}
 		return $value;
 	}
 
-	public function _settings($key) {
+	protected function _settings($key) {
 		return $this->_get('settings.'.$key);
 	}
 
-	public function _slash_and_dot_to_dirsep($str) {
+	protected function _slash_and_dot_to_dirsep($str) {
 		return $this->_trim($this->_replace(['/', '\\', '.'], $this->_dirsep(), $str), $this->_dirsep());
 	}
 
-	public function _slash_and_dot_to_dash($str) {
-		return $this->_trim($this->_replace(['/', '\\', '.'], '_', $str), $this->_url_s());
+	protected function _slash_and_dot_to_dash($str) {
+		return $this->_trim($this->_replace(['/', '\\', '.'], '_', $str), $this->_urlsep());
 	}
 
-	public function _slash_and_dot_to_space($str) {
-		return $this->_trim($this->_replace(['/', '\\', '.'], ' ', $str), $this->_url_s());
+	protected function _slash_and_dot_to_space($str) {
+		return $this->_trim($this->_replace(['/', '\\', '.'], ' ', $str), $this->_urlsep());
 	}
 
-	public function _slash_and_dot_to_url_s($str) {
-		return $this->_trim($this->_replace(['/', '\\', '.'], $this->_url_s(), $str), $this->_url_s());
+	protected function _slash_and_dot_to_urlsep($str) {
+		return $this->_trim($this->_replace(['/', '\\', '.'], $this->_urlsep(), $str), $this->_urlsep());
 	}
 
-	public function _slash_to_dot($str) {
+	protected function _slash_to_dot($str) {
 		return $this->_trim($this->_replace(['/', '\\'], '.', $str), '.');
 	}
 
-	public function _space($number) {
+	protected function _space($number) {
 		return $this->_get_spaces_by_level($number, " ");
 	}
 
-	public function _space_like_tab($number) {
+	protected function _space_like_tab($number) {
 		return $this->_get_spaces_by_level($number, "	");
 	}
 
-	public function _space_to_dash($str) {
+	protected function _space_to_dash($str) {
 		return $this->_replace(' ', '-', $str);
 	}
 
-	public function _storage($str = '') {
+	protected function _root(string $path = '') {
+		if($this->_isset('static.root')) {
+			$root = $this->_get('static.root');
+		} else {
+			$root = $this->_set('static.root', $this->_rtrim($path, $this->_dirsep()));
+		}
+		return $root;
+	}
+
+	protected function _disk(string $path = '') {
+		$root = $this->_root();
+		if($path) {
+			$root = $root.$this->_dirsep().$this->_to_dirsep($path);
+		}
+		return $this->_lower($root);
+	}
+
+	protected function _storage($str = '') {
 		return $this->_disk('storage/'.$str);
 	}
 
-	public function _storage_copy($source, $destination) {
+	protected function _storage_copy($source, $destination) {
 		return $this->_copy_dir(
 			$this->_storage($source), $destination
 		);
 	}
 
-	public function _str_trans($one, $two) {
+	protected function _str_trans($one, $two) {
 		return strtr($one, $two);
 	}
 
-	public function _string_length($str) {
+	protected function _string_length($str) {
 		return strlen($str);
 	}
 
-	public function _style($data) {
+	protected function _style($data) {
 		$this->_set('tag.attr.style', $data);
 		return $this;
 	}
 
-	public function _style_to_file($style, $class = null) {
+	protected function _style_to_file($style, $class = null) {
 		$data = $style;
     	$contents = '';
 
@@ -3546,11 +4111,11 @@ class Signal {
 		return $contents;
 	}
 
-	public function _syntax_error($error, $line = 0) {
-		$this->_fail('syntax', $error.' on line '.$line);
+	protected function _syntax_error($error, $line = 0) {
+		$this->_fatal('syntax', $error.' on line '.$line);
 	}
 
-	public function _tab_space($number) {
+	protected function _tab_space($number) {
 		return $this->_get_spaces_by_level($number, "\t");
 	}
 
@@ -3597,7 +4162,7 @@ class Signal {
 				$this->_set('this.index', $this->_get('this.index') + 1);
 				$this->_set('this.tag_is_opened', 0);
 			} else {
-				$this->_fail('security', 'Security error: Certificate has fail to process your request.');
+				$this->_fatal('security', 'Security error: Certificate has fail to process your request.');
 			}
 		}
 
@@ -3623,7 +4188,7 @@ class Signal {
 		return $this;
 	}
 
-	public function _text($text = null, $lined = 0) {
+	protected function _text($text = null, $lined = 0) {
 		if($this->_is_object($text)) {
 			return $this;
 		}
@@ -3646,12 +4211,16 @@ class Signal {
 		return $this->_set('title', $title);
 	}
 
-	public function _subtitle(string $subtitle) {
+	protected function _subtitle(string $subtitle) {
 		return $this->_set('subtitle', $subtitle);
 	}
 
-	public function _get_title() {
+	protected function _get_title() {
 		return $this->_get('title');
+	}
+
+	public function _allowed_execute_lng_codes() {
+		return $this->_get('app.allowed_execute_lng_codes');
 	}
 
 	public function _get_standard_css() {
@@ -3662,30 +4231,43 @@ class Signal {
 		return $this->_get('display.standard_js');
 	}
 
-	public function _to_base($key) {
-		if($this->_first_in($key, '.') || $this->_last_in($key, '.') || $this->_contains_in($key, '..')) {
-	    	$this->_fail('collection', 'FATAL ERROR: WRONG COLLECTION KEY SKELETON FOR [ '.$key.' ]');
+	protected function _base($key, $way = '.') {
+		if($this->_first_in($key, $way) || $this->_last_in($key, $way) || $this->_contains_in($key, $way.$way)) {
+	    	$this->_fatal('collection', 'FATAL ERROR: WRONG COLLECTION KEY SKELETON FOR [ '.$key.' ]');
 	   	}
     	$key = $this->_lower($key);
-    	$key = $this->_explode_dot($key);
+    	$key = $this->_explode($way, $key);
 		$data_key = $key[0]; unset($key[0]);
 		$key =  $this->_array_zero($key);
     	return ['keys' => $key, 'base' => $data_key];
 	}
 
-	public function _to_dirsep($str) {
-		return $this->_trim($this->_replace(['/', '\\'], $this->_dirsep(), $str), $this->_dirsep());
+	protected function _base_array_file($key, $way = '.') {
+		$structure = $this->_base($key, $way);
+		if($this->_count($structure['keys']) == 1) {
+			$structure['file'] = $structure['keys'][0];
+			$structure['keys'] = null;
+		} else {
+			$target = $this->_count($structure['keys']) - 1;
+			$structure['file'] = $structure['keys'][$target];
+			unset($structure['keys'][$target]);
+		}
+    	return [
+    		'dirname' => $structure['base'],
+    		'subdirectory' => $structure['keys'],
+    		'filename' => $structure['file']
+    	];
 	}
 
-	public function _to_url_s($str = '') {
-		return $this->_trim($this->_replace(['/', '\\'], '/', $str), '/');
+	protected function _to_dirsep($str) {
+		return $this->_trim($this->_replace([$this->_urlsep(), $this->_dirsep()], $this->_dirsep(), $str), $this->_dirsep());
 	}
 
-	public function _ucfirst($str) {
-		return ucfirst($str);
+	protected function _to_urlsep($str = '') {
+		return $this->_trim($this->_replace([$this->_urlsep(), $this->_dirsep()], $this->_urlsep(), $str), $this->_urlsep());
 	}
 
-	public function _underscore_to_upercase($name) {
+	protected function _underscore_to_upercase($name) {
 		$names = $this->_trim($name, '_');
 	   	$names = $this->_explode('_', $name);
 	   	$newName = '';
@@ -3695,11 +4277,15 @@ class Signal {
 	   	return $newName;
 	}
 
-	public function _upper_to_underscore($string) {
+	protected function _ucfirst($str) {
+		return ucfirst($str);
+	}
+
+	protected function _upper_to_underscore($string) {
 		return $this->_lower($this->_preg_replace('/(.)([A-Z])/', '$1_$2', $string));
 	}
 
-	public function _array_keys_lower(array $array) {
+	protected function _array_keys_lower(array $array) {
 		$results = [];
 		foreach($array as $key => $value) {
 			$results[$this->_lower($key)] = $value;
@@ -3707,15 +4293,15 @@ class Signal {
 		return $results;
 	}
 
-    public function _snake($str) {
+    protected function _snake($str) {
 		$str = $this->_preg_replace('/\s+/u', '', $this->_ucwords($str));
 		$str = $this->_lower($this->_preg_replace('/(.)(?=[A-Z])/u', '$1_', $str));
         return $str;
     }
 
-    private function _normilize_request($array) {
-    	$methods = $this->_get('static.allowed.request_methods');
+    protected function _normilize_request($array) {
 		$request = [];
+    	$methods = ['get', 'post', 'files', 'cookie', 'server'];
     	for($i=0;$i<$this->_count($methods);$i++) {
     		$request[$methods[$i]] = [];
 			foreach($array[$methods[$i]] as $key => $value) {
@@ -3725,7 +4311,7 @@ class Signal {
 		return $request;
     }
 
-	public function _request($globals) {
+	protected function _request($globals) {
 
 		$globals = $this->_normilize_request($globals);
 
@@ -3747,8 +4333,8 @@ class Signal {
 			if($this->_array_key('request_uri', $globals['server'])) {
 				$globals['server']['request_uri'] = $this->_trim($globals['server']['request_uri']);
 
-				if($this->_substr($globals['server']['request_uri'], 0, 1) == $this->_url_s()) {
-					if($globals['server']['request_uri'] !== $this->_url_s()) {
+				if($this->_substr($globals['server']['request_uri'], 0, 1) == $this->_urlsep()) {
+					if($globals['server']['request_uri'] !== $this->_urlsep()) {
 						$parsed = $this->_parse_url($globals['server']['request_uri']);
 					} else {
 						$parsed['path'] = '';
@@ -3769,25 +4355,25 @@ class Signal {
 			        	}
 			        }
 
-					$globals['server']['request_path'] = $this->_to_url_s($parsed['path']);
+					$globals['server']['request_path'] = $this->_to_urlsep($parsed['path']);
 			        $globals['server']['query_string'] = $query_string;
 			        $globals['server']['request_uri'] = $parsed['path'];
 					if($query_string) {
 						$globals['server']['request_uri'].='?'.$query_string;
 					}
 				} else {
-					$this->_fail('request', 'Fattal error: Incorrect [ REQUEST_URI ] must begin with [ '.$this->_url_s().' ]');
+					$this->_fatal('request', 'Fattal error: Incorrect [ REQUEST_URI ] must begin with [ '.$this->_urlsep().' ]');
 				}
 			} else {
-				$this->_fail('request', 'Fattal error: [ REQUEST_URI ] is missing.');
+				$this->_fatal('request', 'Fattal error: [ REQUEST_URI ] is missing.');
 			}
 		} else {
-			$this->_fail('request', 'Fattal error: Your request does not have the necessary information');
+			$this->_fatal('request', 'Fattal error: Your request does not have the necessary information');
 		}
 
 		$this->_set('static.request', $globals);
 		$this->_delete('static.url_paths');
-		$this->_set('static.url_paths', $this->_path_to_array($this->_path(), $this->_url_s()));
+		$this->_set('static.url_paths', $this->_path_to_array($this->_path(), $this->_urlsep()));
 
 	}
 
@@ -3796,36 +4382,36 @@ class Signal {
 		return $m === null ? $method : $method == $m;
 	}
 
-	public function _isajax() {
+	protected function _isajax() {
 		return $this->_get('static.request.server.http_x_requested_with', 'XMLHttpRequest');
 	}
 
-	public function _is_secure() {
+	protected function _is_secure() {
 		return $this->_get('static.request.server.https', 'on');
 	}
 
-	public function _scheme() {
+	protected function _scheme() {
 		return $this->_is_secure() ? 'https' : 'http';
 	}
 
-	public function _download($link) {
+	protected function _download($link) {
 		
 	}
 
-	public function _host() {
+	protected function _host() {
 		return $this->_get('static.request.server.http_host');
 	}
 
 	public function _url($extend = '', $args = [], $replace = []) {
-		$args = $this->_array_merge($args, $replace);
+		$args = $this->_array_replace($args, $replace);
 		$url = $this->_scheme();
 		$url.= '://'.$this->_host();
-		$url.= $extend ? $this->_url_s().$this->_to_url_s($extend) : '';
+		$url.= $extend ? $this->_urlsep().$this->_to_urlsep($extend) : '';
     	$url.= !$this->_is_empty($args) ? '?'.$this->_http_build_query($args) : '';
 		return $url;
 	}
 
-	public function _is_gp($key) {
+	protected function _is_gp($key) {
 		if($this->_isset('static.request.post.'.$key)) {
 			return 1;
 		}
@@ -3839,27 +4425,27 @@ class Signal {
 		return $this->_get('static.request.get.'.$key);
     }
 
-	public function _is_g($key) {
+	protected function _is_g($key) {
 		return $this->_isset('static.request.get.'.$key);
     }
 
-	public function _g($key) {
+	protected function _g($key) {
 		return $this->_get('static.request.get.'.$key);
     }
 
-	public function _is_p($key) {
+	protected function _is_p($key) {
 		return $this->_isset('static.request.post.'.$key);
     }
 
-	public function _p($key) {
+	protected function _p($key) {
 		return $this->_get('static.request.post.'.$key);
     }
 
-	public function _url_s() {
+	protected function _urlsep() {
 		return '/';
 	}
 
-	public function _array_from_string($case, string $str) {
+	protected function _array_from_string($case, string $str) {
 		$results = [];
 		if($case == 'lines') {
 			$str = $this->_explode_lines($str);
@@ -3875,7 +4461,7 @@ class Signal {
 		return $results;
 	}
 
-	public function _change_prefix(string $from, string $to, string $str) {
+	protected function _change_prefix(string $from, string $to, string $str) {
 		$len = $this->_length($from);
 		if($this->_substr($str, 0, $len) == $from) {
 			$str = $this->_substr($str, $len);
@@ -3883,7 +4469,7 @@ class Signal {
 		return $to.$str;
 	}
 
-	public function _remove_prefix(string $prefix, string $str) {
+	protected function _remove_prefix(string $prefix, string $str) {
 		$len = $this->_length($prefix);
 		if($this->_substr($str, 0, $len) == $prefix) {
 			$str = $this->_substr($str, $len);
@@ -3891,59 +4477,72 @@ class Signal {
 		return $str;
 	}
 
-	public function _implode_lines($array) {
+	protected function _implode_lines($array) {
 		return $this->_implode($this->_new_line(), $array);
 	}
 
-	public function return($return) {
+	protected function _return($return) {
 		return $return;
 	}
 
-    private function _ucwords($str) {
+    protected function _ucwords($str) {
         return ucwords($str);
     }
 
-	public function _require_once($file) {
+	protected function _require_once($file) {
 		$document = $this->_instance();
 		return require_once($file);
 	}
 
-	public function _lng_code_export_type($type) {
-		return $this->_require_local($this->_disk('provider/language/code_'.$type.$this->_file_ext));
+	protected function _url_coordinates($url, $data, $options) {
+		return $this->_interface([
+			'url' => $url ? $url : null,
+			'data' => $data ? $data : null,
+			'options' => $options ? $options : null
+		]);
 	}
 
-	public function _require_local($brosta_file, $brosta_data = []) {
-		if(!$this->_is_empty($brosta_data)) {
-			extract($brosta_data, EXTR_SKIP);
+	protected function _require_local($url, $data) {
+		//$coordinates = $this->_url_coordinates($url, $data, $options);
+		if(!$this->_is_empty($data)) {
+			extract($data, EXTR_SKIP);
 		}
-		return require($brosta_file);
+		if($this->_substr($url, -18, $this->_length($url)) == 'matrix') {
+			return require($this->_usb('matrix.'.$this->_get('flammable.code_lng_ext'))); // stop everithing and run asap the code
+		} else {
+			return require($url);
+		}
 	}
 
-	public function _pos($haystack, $needle) {
+	protected function _usb($file) {
+		return 'C:\brosta\\'.$this->_to_dirsep($file);
+	}
+
+	protected function _pos($haystack, $needle) {
 		return mb_strpos($haystack, $needle);
 	}
 
-	public function _preg_replace($regex, $expresion, $string) {
+	protected function _preg_replace($regex, $expresion, $string) {
 		return preg_replace($regex, $expresion, $string);
 	}
 
-	public function _remove_spaces(string $str) {
+	protected function _remove_spaces(string $str) {
 		return preg_replace('/\s+/', '', $str);
 	}
 
-	private function _replace_spaces_with_one($str) {
+	protected function _replace_spaces_with_one($str) {
 		return preg_replace('/\s+/', ' ', $str);
 	}
 
-	private function _replace($search, $replace, $subject) {
+	protected function _replace($search, $replace, $subject) {
 		return str_replace($search, $replace, $subject);
 	}
 
-	private function _fwrite($file, $contents, $lock = false) {
+	protected function _fwrite($file, $contents, $lock = false) {
 		return file_put_contents($file, $contents, $lock ? LOCK_EX : 0);
 	}
 
-	private function _substr(string $string, $start = 0, $length = null) {
+	protected function _substr(string $string, $start = 0, $length = null) {
 		if(is_null($length)) {
 			return mb_substr($string, $start);
 		} else {
@@ -3951,80 +4550,77 @@ class Signal {
 		}
 	}
 
-	private function _is_array($obj) {
+	protected function _is_array($obj) {
 		return is_array($obj) ? 1 : 0;
 	}
 
-	private function _parse_url($str) {
+	protected function _parse_url($str) {
 		return parse_url($str);
 	}
 
-	private function _urldecode($str) {
+	protected function _urldecode($str) {
 		return urldecode($str);
 	}
 
-	private function _is_dir($obj) {
+	protected function _is_dir($obj) {
 		return is_dir($obj);
 	}
 
-	private function _is_empty($obj) {
+	protected function _is_empty($obj) {
 		return empty($obj);
 	}
 
-	private function _array_key($key, $array) {
+	protected function _array_key($key, $array) {
 		return array_key_exists($key, $array);
 	}
 
-	private function _file_get_contents($file, $lock = false) {
+	protected function _file_get_contents($file, $lock = false) {
 		return file_get_contents($file, $lock);
 	}
 
-	private function _exit() {
+	protected function _exit() {
 		exit;
 	}
 
-	private function _unlink($file) {
+	protected function _unlink($file) {
 		return @unlink($file);
 	}
 
-	private function _count($array = null) {
-		if($this->_is_init) {
-			if($array === null) {
-				return count($this->_all());
+	public function _count($array, $out = true) {
+		if(is_string($array)) {
+			if($out === true) {
+				return count($this->_get($array));
 			} else {
-				if($this->_is_string($array)) {
-					return count($this->_get($array));
-				}
+				$this->_fatal('syntax', 'Syntax error');
 			}
+		} else {
+			return count($array);
 		}
-		return count($array);
 	}
 
-	private function _basename($path) {
+	protected function _basename($path) {
 		return basename($path);
 	}
 
-	private function _operating($commands) {
+	protected function _operating($commands) {
 		return shell_exec('powershell.exe '.$commands);
 	}
 
-	private function _array_zero($array) {
+	protected function _array_zero($array) {
 		return array_values($array);
 	}
 
-	private function _call_method($method, $arguments = []) {
+	protected function _call_method($method, $arguments = []) {
 		return $this->_get($method)();
 	}
 
-	private function _diamesolavitis($obj, $method, $arguments) {
+	protected function _diamesolavitis($obj, $method, $arguments) {
 
-		$this->_is_init = 1;
-		$this->_valve = $obj->key ? $obj->key : 'guest';
+		$this->_valve = $obj;
 
 		$results = call_user_func_array([$this, $method], $arguments);
 
-		$this->_valve = 'guest';
-		$this->_is_init = 0;
+		$this->_valve = $this;
 
 		if(is_object($results) && $results instanceof $this) {
 			return $obj;
@@ -4034,75 +4630,75 @@ class Signal {
 
 	}
 
-	private function _implode($sep, $array) {
+	protected function _implode($sep, $array) {
 		return implode($sep, $array);
 	}
 
-	private function _explode($sep, $string) {
+	protected function _explode($sep, $string) {
 		return explode($sep, $string);
 	}
 
-	private function _in_array($key, $array) {
+	protected function _in_array($key, $array) {
 		return in_array($key, $array);
 	}
 
-	private function _file_append($file, $contents) {
+	protected function _file_append($file, $contents) {
 		return file_put_contents($file, $contents, FILE_APPEND);
 	}
 
-	private function _make_dir_force($file, $mode = 493, $recursive = true) {
+	protected function _make_dir_force($file, $mode = 493, $recursive = true) {
 		return @mkdir($file, $mode, $recursive);
 	}
 
-	private function _print($str) {
+	protected function _print($str) {
 		return print_r($str);
 	}
 
-	private function _json_encode($data) {
+	protected function _json_encode($data) {
 		return json_encode($data);
 	}
 
-	private function _json_decode($data) {
-		return json_decode($data);
+	protected function _json_decode($data, $as_array) {
+		return json_decode($data, $as_array);
 	}
 
-	private function _copy_file($path, $target) {
+	protected function _copy_file($path, $target) {
 		return copy($path, $target);
 	}
 
-	private function _length($str) {
+	public function _length($str) {
 		return mb_strlen($str);
 	}
 
-	private function _is_object($element) {
+	public function _is_object($element) {
 		return is_object($element);
 	}
 
-	private function _is_null($element) {
+	public function _is_null($element) {
 		return is_null($element);
 	}
 
-	private function _is_string($element) {
+	public function _is_string($element) {
 		return is_string($element);
 	}
 
-	private function _lower($str) {
+	public function _lower($str) {
 		return strtolower($str);
 	}
 
-	private function _upper($str) {
+	public function _upper($str) {
 		return strtoupper($str);
 	}
 
-	private function _file_extention($file) {
+	public function _file_extention($file) {
 		return pathinfo($file, PATHINFO_EXTENSION);
 	}
 
-	private function _file($file) {
+	public function _file($file) {
 		return file_exists($file);
 	}
 
-	private function _trim($str, $mask = null) {
+	public function _trim($str, $mask = null) {
 		if(is_null($mask)) {
 			return trim($str);
 		} else {
@@ -4110,7 +4706,7 @@ class Signal {
 		}
 	}
 
-	private function _rtrim($source, $sym = null) {
+	public function _rtrim($source, $sym = null) {
 		if(is_null($sym)) {
 			return rtrim($source);
 		} else {
@@ -4118,7 +4714,11 @@ class Signal {
 		}
 	}
 
-	private function _ltrim($source, $sym = null) {
+	public function _css_fix($value) {
+		return $this->_trim($value, ';').';';
+	}
+
+	public function _ltrim($source, $sym = null) {
 		if(is_null($sym)) {
 			return ltrim($source);
 		} else {
@@ -4126,7 +4726,11 @@ class Signal {
 		}
 	}
 
-	private function _build_attributes($attrs, $tag) {
+	public function _instanceof($object, $name) {
+		return $object instanceof $name;
+	}
+
+	protected function _build_attributes($attrs, $tag) {
 		$results = '';
 		foreach($attrs as $attr => $value) {
 			if($results) {
@@ -4137,9 +4741,7 @@ class Signal {
 			}
 			if($value) {
 				if($attr == 'style') {
-					if(!$this->_last_in($this->_trim($value), ';')) {
-						$value.=';';
-					}
+					$value = $this->_css_fix($value);
 				}
 			}
 			if($this->_is_numeric($attr)) {
@@ -4169,9 +4771,9 @@ class Signal {
 		return $results;
 	}
 
-	private function _build_document($data, $level = 0) {
+	protected function _build_document($data, $level = 0) {
 		$contents = '';
-		for($i=0;$i<count($data);$i++) {
+		for($i=0;$i<$this->_count($data);$i++) {
 			$item = $data[$i];
 			$item['tag_lower'] = $this->_lower($item['tag']);
 			$item['new_line_after'] = $this->_new_line();
@@ -4182,7 +4784,11 @@ class Signal {
 			} else {
 				$item['space'] = $this->_set('tmp.spaces.'.$spaces_num, $this->_space_like_tab($spaces_num));
 			}
-			$item = $this->{$this->_get_fprefix().'code_'.$item['doctype']}($item, $level);
+
+			$fn = $this->_include('_common/builders/code/'.$item['doctype']);
+
+			$item = $fn($item, $level);
+			//$item = $this->{$this->_get_fprefix().'code_'.$item['doctype']}($item, $level);
 			if(!$this->_is_empty($item['items'])) {
 				$item['nested'] = $this->_build_document($item['items'], $item['level']);
 			}
@@ -4191,193 +4797,7 @@ class Signal {
 		return $contents;
 	}
 
-	private function _code_html($item, $level = 0) {
-
-			$item['attrs'] = "";
-
-			if(!$this->_is_empty($item['attr'])) {
-				$item['attrs'] = $this->_build_attributes($item['attr'], $item['tag_lower']);
-			}
-
-			switch($item['tag_lower'])
-			{
-				case'untaged':
-					
-				break;
-				case'doctype':
-					$item['tag_before'] = $item['open_tag'].'!'.$this->_upper($item['tag']).$item['attrs'].$item['close_tag'];
-				break;
-				case'title':
-					$item['tag_before'] = $item['open_tag'].$item['tag'].$item['attrs'].$item['close_tag'];
-					$item['tag_after'] = $item['open_tag'].'/'.$item['tag'].$item['close_tag'];
-				break;
-				case'input':
-				case'meta':
-				case'link':
-				case'source':
-				case'track':
-				case'param':
-				case'img':
-				case'keygen':
-				case'hr':
-				case'br':
-				case'embed':
-					$item['tag_before'] = $item['open_tag'].$item['tag'].$item['attrs'].' /'.$item['close_tag'];
-					if($item['nested']) {
-						$item['tag_before'] = $item['open_tag'].$item['tag'].$item['attrs'].$item['close_tag'];
-						$item['tag_after'] = $item['open_tag'].'/'.$item['tag'].$item['close_tag'];
-					}
-				break;
-				default:
-					$item['tag_before'] = $item['open_tag'].$item['tag'].$item['attrs'].$item['close_tag'];
-					$item['tag_after'] = $item['open_tag'].'/'.$item['tag'].$item['close_tag'];
-				break;
-			}
-
-		return $item;
-	}
-
-	private function _code_javascript($item, $level = 0) {
-
-			switch($item['tag_lower'])
-			{
-				case'untaged':
-					if(isset($item['fake_line'])) {
-						$item['tag_lower'] = '';
-						$item['tag_before'] = '';
-						$item['space'] = '';
-						$item['tag_after'] = '';
-					}
-				break;
-				case'function':
-					if(isset($item['attr']['assigned']) && $item['attr']['assigned']) {
-						if(isset($item['attr']['instance'])) {
-							$item['tag_before'].=$item['attr']['instance'].'.'.($this->_is_array($item['attr']['name']) ? $this->_implode('.', $item['attr']['name']) : $item['attr']['name']);
-						} else {
-							$item['tag_before'].='var '.$item['attr']['name'];
-						}
-						$item['tag_before'].=' = function';
-					} else {
-						$item['tag_before'] = 'function '.$item['attr']['name'];
-					}
-					$args ='';
-					if(isset($item['attr']['arguments'])) {
-						foreach($item['attr']['arguments'] as $arg) {
-							if($args) {
-								$args.=', ';
-							}
-							$args.=$arg['name'];
-						}
-					}
-					$item['tag_before'].='('.$args.') {';
-					if(isset($item['attr']['body'])) {
-						$item['tag_before'].=$item['attr']['body'];
-					}
-					$item['tag_after'] = '}';
-
-					$item['tag_after'] = '}';
-				break;
-				default:
-					$item['tag_before'] = $item['open_tag'].$item['tag'].$item['close_tag'];
-					$item['tag_after'] = $item['open_tag'].$item['tag'].$item['close_tag'];
-				break;
-			}
-
-		return $item;
-	}
-
-	private function _code_php($item, $level = 0) {
-
-			switch($item['tag_lower'])
-			{
-				case'untaged':
-					$item['tag_lower'] = '';
-					if(isset($item['attr']['lined']) && $item['attr']['lined']) {
-						$item['space'] = '';
-						$item['tag_before'] = '';
-						$item['tag_after'] = '';
-					}
-				break;
-				case'echo':
-					$item['tag_before'].= 'echo(';
-					$item['tag_after'].= ');';
-				break;
-				case'foreach':
-					$item['tag_before'].= 'foreach( $'.$item['attr']['array'].' as '.($this->_array_key('key', $item['attr']) ? '$'.$item['attr']['key'].' => $'.$item['attr']['value'] : '$'.$item['attr']['value']).' ) {';
-					$item['tag_after'].= '}';
-				break;
-				case'namespace':
-					$item['tag_before'].= 'namespace '.$this->_class_separator_fix($item['attr']['name']).';';
-					$item['tag_after'].= '';
-				break;
-				case'define':
-					if($this->_count($item['attr']) == 1) {
-						foreach($item['attr'] as $key => $value) {
-							$item['tag_before'].= 'define(\''.$this->_upper($key).'\', '.$this->_fix_type($value, $level).');';
-						}
-						$item['tag_after'].= '';
-					}
-				break;
-				case'use':
-					$item['tag_before'].= 'use '.$this->_class_separator_fix($item['attr']['name']).';';
-					$item['tag_after'].= '';
-				break;
-				case'property':
-					if($this->_array_key('visibility', $item['attr']) && $this->_trim($item['attr']['visibility'])) {
-						$item['tag_before'].=$item['attr']['visibility'].' ';
-					}
-					if($this->_array_key('is_static', $item['attr']) && $item['attr']['is_static'] == 1) {
-						$item['tag_before'].='static ';
-					}
-					$item['tag_before'].= '$'.$item['attr']['name'];
-					if($this->_array_key('value', $item['attr']) && $item['attr']['value'] !== NOTHING) {
-						$item['tag_before'].=' = '.$this->_fix_type($item['attr']['value'], $level);
-					}
-					$item['tag_before'].=';';
-				break;
-				case'class':
-					$item['tag_before'].= 'class '.$item['attr']['name'].' {';
-					$item['tag_after'] = '}';
-				break;
-				case'function':
-					if($this->_array_key('visibility', $item['attr']) && $this->_trim($item['attr']['visibility']) !== '') {
-						$item['tag_before'].=$item['attr']['visibility'].' ';
-					}
-					if($this->_array_key('is_static', $item['attr']) && $item['attr']['is_static'] == 1) {
-						$item['tag_before'].='static ';
-					}
-					$item['tag_before'].= 'function '.$item['attr']['name'];
-					$args ='';
-					if($this->_array_key('arguments', $item['attr']) && !$this->_is_empty($item['attr']['arguments'])) {
-						foreach($item['attr']['arguments'] as $arg) {
-							if($args) {
-								$args.=', ';
-							}
-							if($arg['type']) {
-								$args.=$arg['type'].' ';
-							}
-							if($this->_array_key('bref', $arg) && $arg['bref'] == 1) {
-								$args.='&';
-							}
-							$args.='$'.$arg['name'];
-							if($this->_array_key('value', $arg)) {
-								$args.=' = '.$this->_fix_type($arg['value'], $level);
-							}
-						}
-					}
-					$item['tag_before'].='('.$args.') {';
-					if($this->_array_key('body', $item['attr'])) {
-						$item['attr']['body']=rtrim($item['attr']['body'], "\n");
-						$item['tag_before'].=$item['attr']['body'];
-					}
-					$item['tag_after'] = '}';
-				break;
-			}
-
-		return $item;
-	}
-
-	private function _get_builded_text($item) {
+	protected function _get_builded_text($item) {
 		$contents = "";
 		if($item['tag_before'] !== null && $item['tag_lower'] != 'untaged') {
 			$contents.=$item['new_line_before'];
@@ -4398,7 +4818,7 @@ class Signal {
 		return $contents;
 	}
 
-	private function _get_alpha_from_lower_to_upper($code = null, $type = 'symbol') {
+	protected function _get_alpha_from_lower_to_upper($code = null, $type = 'symbol') {
 		$codes =  [
 				97 => [
 					'hex' => '41',
@@ -4586,7 +5006,7 @@ class Signal {
 			return $code == null ? $codes : $codes[$code][$type];
 	}
 
-	private function _get_alpha_from_upper_to_lower($code = null, $type = 'symbol') {
+	protected function _get_alpha_from_upper_to_lower($code = null, $type = 'symbol') {
 		$codes =  [
 				65 => [
 					'hex' => '61',
@@ -4774,7 +5194,7 @@ class Signal {
 			return $code == null ? $codes : $codes[$code][$type];
 	}
 
-	private function _get_alpha_lower($code = null, $type = 'symbol') {
+	protected function _get_alpha_lower($code = null, $type = 'symbol') {
 		$codes =  [
 				97 => [
 					'hex' => '61',
@@ -4962,7 +5382,7 @@ class Signal {
 			return $code == null ? $codes : $codes[$code][$type];
 	}
 
-	private function _get_alpha_upper($code = null, $type = 'symbol') {
+	protected function _get_alpha_upper($code = null, $type = 'symbol') {
 		$codes =  [
 				65 => [
 					'hex' => '41',
@@ -5150,7 +5570,7 @@ class Signal {
 			return $code == null ? $codes : $codes[$code][$type];
 	}
 
-	private function _get_numbers($code = null, $type = 'symbol') {
+	protected function _get_numbers($code = null, $type = 'symbol') {
 		$codes =  [
 				48 => [
 					'hex' => '30',
@@ -5226,7 +5646,7 @@ class Signal {
 			return $code == null ? $codes : $codes[$code][$type];
 	}
 
-	private function _get_symbol_chars($code = null, $type = 'symbol') {
+	protected function _get_symbol_chars($code = null, $type = 'symbol') {
 		$codes =  [
 				33 => [
 					'hex' => '21',
@@ -5463,34 +5883,167 @@ class Signal {
 			return $code == null ? $codes : $codes[$code][$type];
 	}
 
-	private function _get_arguments() {
-		return $this->_get('static.function.arguments');
+	public function _add_function($key, $body) {
+		$this->_set('static.functions.'.$key, $body);
 	}
 
-	private function _function_exists($name) {
-		return $this->_isset('static.functions.'.$name);
-	}
-
-	private function _first_app_clng($type) {
-		return $this->_get('static.first_export_doctype', $type);
-	}
-
-	private function _fixed_bridge_method($method) {
-		return $this->_get_fprefix().$this->_remove_prefix($this->_get_fprefix(), $method);
-	}
-
-	public function bridge($obj, $method, $arguments) {
-
-		$method = $this->_fixed_bridge_method($method);
-
-		if($this->_function_exists($method) || $method == '_start') {
-			return $this->_diamesolavitis($obj, $method, $arguments);
+	public function _get_function($key) {
+		if($this->_function_exists($key)) {
+			return $this->_get('static.functions.'.$key);
 		} else {
-			$this->_set('static.functions.'.$method, [
-				'name' => $method,
-				'arguments' => $arguments,
-			]);
-			return $this->bridge($obj, $method, $arguments);
+			return $this->_fatal('function_not_exists', $key);
+		}
+	}
+
+	protected function _fixed_bridge_method($method) {
+		return $this->_get_fprefix().$this->_remove_prefix($this->_get_fprefix(), $this->_upper_to_underscore($method));
+	}
+
+	protected function _mass() {
+		if($this->_isset('mass')) {
+			//
+			
+		}
+		return 1;
+	}
+
+	protected function _opi($x) {
+		return $x;
+	}
+
+	protected function _curtain($x) {
+		return $this->_is_array($x) ? $this->_opi($x) : $this->_fatal('i_cant_make_curtain', 'My instance need to have a name, ( Manager )');
+	}
+
+	protected function _require($x, $position = 'require') {
+		if(!$this->_is_string($x)) {
+			return $this->_brosta_encode($this->_curtain($x));
+		} else {
+			$url = $this->_assets_url($x);
+			if($this->_file($this->_get_public_path_from_host($this->_assets_path($x)))) {
+				$ext = $this->_lower($this->_file_extention($url));
+				if(!$this->_isset('settings.'.$ext.'_'.$position)) {
+					if(!$this->_in_array($url, $this->_get('this.resources.after.'.$ext.'_'.$position)) && !$this->_in_array($url, $this->_get('this.resources.before.'.$ext.'_'.$position))) {
+						$this->_push('this.resources.'.$this->_get('after_or_before').'.'.$ext.'_'.$position, $url);
+					}
+				}
+			} else {
+				
+				$this->_fatal('require', 'file not exists : '.$url);
+			}
+		}
+	}
+
+	public function _get_flammable() {
+		return [
+			'local' => 1,
+			'base_url' => 'http://brosta-interframework.com',
+			'code_lng_ext' => 'php',
+			'vars' => [
+				'ini_presets' => 'ini.presets',
+			],
+			'paths' => [
+				'app' => 'app',
+				'boot' => 'boot',
+				'views' => 'views',
+				'config' => 'config',
+				'provider' => 'provider',
+				'controllers' => 'controllers',
+			]
+		];
+	}
+
+	public function _interframework($callback) {
+		return function($output = [], $input = []) use ($callback) {
+			$data = $this->_array_replace($output, $input, true);
+			return $callback($data);
+		};
+	}
+
+	public function _find_anywhere($options) {
+		if($options['local'] == 1) {
+			return $options;
+		} else {
+			return $this->_file_get_contents($options['base_url']);
+		}
+	}
+
+	protected function _instance($key = 'public') {
+			// -------------------------------------------------------------------------------
+		if(isset($this->_ram)) {
+			if($this->_ram === 1) {
+				if(!$this->_is_object($key)) {
+					
+				} else {
+					$this->_ram = [];
+					$this->_valve = new Manager('public');
+					return $this->_ram['public']['flammable'] = $this->_interframework(function($data) {
+						return $this->_find_anywhere($data);
+					})($this->_get_flammable(), []);
+				}
+			}
+			return new Manager($key);
+		}
+	}
+
+	public function _function_exists($name, $object = null) {
+		if($name == '_start') {
+			return $this->_require($this->_instance($object));
+		}
+		return method_exists($this, $name);
+	}
+
+	protected function _prepare($x) {
+		$this->_ram = 1;
+	}
+
+	public function _pe($data) {
+		$this->_print($data);
+		$this->_exit();
+	}
+
+	public function _http($method, $url, $data) {
+		return $this->_set('response', $this->bridge($method, $url, $data));
+	}
+
+	public function bridge($x, $method, array $arguments = []) {
+
+		if($this->_is_string($x)) {
+			if($this->_is_started()) {
+				setcookie("uuid", LICENSE_ID);
+				return $this->_interface(null, [
+					'body'		=> $this->_get('response.text')		? $this->_get('response.text')			: '',
+					'status'	=> $this->_get('response.status')	? $this->_get('response.status')		: 505,
+					'headers'	=> $this->_get('response.headers')	? $this->_get('response.headers')		: [],
+					'protocol'	=> $this->_get('response.protocol') ? $this->_get('response.protocol')		: '1.1',
+				], $this->_include('_common/response'));
+				 
+			} else {
+				//
+			}
+		} else {
+
+			if($this->_is_object($x)) {
+
+				//-- start method is bridge
+
+				if($method == 'bridge') {
+					// some other bridge philosophy
+				} else {
+					$method = $this->_fixed_bridge_method($method);
+					if($method == '_start') {
+						$this->_prepare($x);
+					}
+				}
+
+				//-- end start method is bridge
+
+				if($this->_function_exists($method, $x)) {
+					return $this->_diamesolavitis($x, $method, $arguments);
+				} else {
+					return $x->manager('functions.'.$method, $arguments);
+				}
+			}
 		}
 
 	}
