@@ -1,14 +1,15 @@
 {
-    "name": "brosta/interframework",
+    "name": "brosta/app",
     "description": "Brosta Interframework",
     "type": "project",
     "require": {
-	"php": "^7.3"
+        "brosta/interframework": "dev-master",
+        "guzzlehttp/guzzle": "~5.3.1||~6.0",
+        "guzzlehttp/psr7": "^1.2"
     },
     "autoload": {
-	"files": ["src/interframework/Helpers.php"],
         "psr-4": {
-            "Brosta\\": "src/interframework/"
+            "App\\": "app/"
         }
     },
     "license": "MIT",
@@ -19,3 +20,4 @@
         }
     ]
 }
+
