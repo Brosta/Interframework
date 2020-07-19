@@ -19,10 +19,7 @@ class Signal {
 	public $key = 'public';
 
 	protected function _start(string $location, $default) {
-		if($this->_reset_ram($location, $default)) {
-			$this->_router();
-			$this->_stop();
-		}
+		
 	}
 
 	protected function _app_body($data, $attrs, $type) {
@@ -300,34 +297,6 @@ class Signal {
 		return $this->_explode($separator, $this->_trim($this->_remove_spaces($algorithms), $separator));
 	}
 
-	protected function _boot_autoloaders() {
-		$data = $this->_get('autoloader');
-		for($a=0;$a<$this->_count($data['providers']);$a++) {
-			$provider_username = $this->_part('/', $data['providers'][$a]['name']);
-			foreach($data['providers'][$a]['autoload']['psr-4'] as $namespace => $path) {
-				$this->_autoload_register_namespace_prefix($namespace, $this->_provider_path($provider_username.'/'.$path));
-			}
-			if(isset($data['providers'][$a]['autoload'])) {
-				if(isset($data['providers'][$a]['autoload']['files'])) {
-					for($b=0;$b<$this->_count($data['providers'][$a]['autoload']['files']);$b++) {
-						$this->_require_local($this->_provider_path($provider_username.'/'.$data['providers'][$a]['autoload']['files'][$b]), null, null);
-					}
-				}
-			}
-		}
-		for($c=0;$c<$this->_count($data['applications']);$c++) {
-			foreach($data['applications'][$c]['autoload']['psr-4'] as $namespace => $path) {
-				$this->_autoload_register_namespace_prefix($namespace, $this->_disk($path));
-			}
-			if(isset($data['applications'][$c]['autoload'])) {
-				if(isset($data['applications'][$c]['autoload']['files'])) {
-					for($d=0;$d<$this->_count($data['applications'][$c]['autoload']['files']);$d++) {
-						$this->_require_local($this->_disk($data['applications'][$c]['autoload']['files'][$d]), null, null);
-					}
-				}
-			}
-		}
-	}
 
 	protected function _server($data) {
 		if($this->_is_array($data)) {
@@ -382,18 +351,6 @@ class Signal {
 	protected function _reset_ram($location, $default) {
 
 		$location = $this->_rtrim($location, $this->_dirsep());
-
-		$algorithms = $this->_isset('static.algorithms') ? $this->_get('static.algorithms') : [
-			'ini',
-			'autoloader',
-			'os',
-			'app',
-			'routes',
-			'settings',
-			'modules',
-			'display',
-			'cache'
-		];
 
 		$this->_set('static', $this->_get_default_static($default));
 
