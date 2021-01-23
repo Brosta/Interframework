@@ -1,6 +1,6 @@
 <?php
 
-// The code has been deleted for the moment. Comming very soon!
+// The code has been deleted for the moment.
 
 require(__DIR__.'/provider/brosta/complex.php');
 
