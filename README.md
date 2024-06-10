@@ -2,7 +2,7 @@ Brosta interframework
 
 A multilingual (JavaScript, PHP, C) framework with administration panel, operating system, and smart home panel capabilities, designed with spacecraft specifications
 
-Interframework revolutionizes traditional frameworks by offering an administration panel (Cockpit), an operating system (Brosta OS), and a smart home panel, all written in JavaScript, PHP, and C. Additionally, it is designed with spaceship specifications, making it ideal for applications that demand high reliability, flexibility, scalability, and smart home integration.
+Brosta interframework revolutionizes traditional frameworks by offering an administration panel (Cockpit), an operating system (Brosta OS), and a smart home panel, all written in JavaScript, PHP, and C. Additionally, it is designed with spaceship specifications, making it ideal for applications that demand high reliability, flexibility, scalability, and smart home integration.
 
 Key Features:
 
@@ -45,7 +45,7 @@ We welcome contributions from the community. Please see the CONTRIBUTING.md file
 
 License:
 
-Interframework is licensed under the MIT License.
+Brosta interframework is licensed under the MIT License.
 
 Disclaimer:
 
