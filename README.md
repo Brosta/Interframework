@@ -1,52 +1,104 @@
-Brosta interframework
+Brosta Interframework
+Overview
+The Brosta Interframework is a revolutionary multilingual framework designed for modern applications, seamlessly integrating an administration panel, operating system, and smart home functionalities, all crafted with stringent specifications inspired by spacecraft technology. This advanced framework is built with a focus on hybrid parallel multitasking, allowing it to support multiple multitasking methods, including pre-emptive and cooperative multitasking, to enhance efficiency and performance.
 
-A multilingual (JavaScript, PHP, C) framework with administration panel, operating system, and smart home panel capabilities, designed with spacecraft specifications
+Spacecraft-Inspired Design
+The design philosophy of the Brosta Interframework draws inspiration from the aerospace industry, where systems must operate reliably and efficiently in extreme conditions. This focus translates into real-world benefits that enhance its applicability across diverse sectors:
 
-Brosta interframework revolutionizes traditional frameworks by offering an administration panel (Cockpit), an operating system (Brosta OS), and a smart home panel, all written in JavaScript, PHP, and C. Additionally, it is designed with spaceship specifications, making it ideal for applications that demand high reliability, flexibility, scalability, and smart home integration.
+Reliability
+Spacecraft systems necessitate extremely high reliability. The Brosta Interframework inherits this emphasis, making it suitable for mission-critical applications where failure is not an option. Applications built on this framework can operate under high-stakes conditions without risk of failure.
 
-Key Features:
+Efficiency
+With limited resources in space, the Brosta Interframework is crafted to maximize efficiency. It minimizes resource consumption while optimizing performance, leading to significant cost savings and improved speed in various applications.
 
-Multilingual Support: JavaScript, PHP, and C are supported.
-Administration Panel: Cockpit provides a user-friendly interface for managing your Brosta interframework applications.
-Operating System: Brosta OS offers a lightweight and efficient operating system for your Brosta interframework applications.
-Smart Home Panel: Seamlessly control and monitor your smart home devices.
-Flexible Architecture: Designed for scalability, customization, and integration with smart home technologies.
-Community-Driven: Open-source and actively supported by a growing community.
-Cockpit Panel for Real Machine Management: Through the Cockpit Panel, you can manage real machines such as PLCs, sensors, and spacecraft functions.
-Getting Started:
+Real-time Capabilities
+Real-time processing is crucial for tasks such as navigation and control in spacecraft. The Brosta Interframework supports real-time operations, making it ideal for applications that require immediate responses. This capability is essential in industries where timing is critical, ensuring tasks are executed precisely when needed.
 
-Clone the repository:
-git clone https://github.com/JohnStamatopoulos/interframework.git
-Install dependencies:
+Remote Management
+The Brosta Interframework features a Cockpit panel that facilitates remote management of devices and systems. This functionality allows users to manage various applications, including, theoretically, spacecraft functions, thereby enhancing its utility in remote monitoring and control scenarios.
+
+Key Features
+Hybrid Parallel Multitasking: Combines pre-emptive and cooperative multitasking methods for efficient task scheduling and execution across multiple cores, allowing for responsive and adaptive application behavior.
+
+Multilingual Support: Utilizes JavaScript, PHP, and C, offering flexibility in application development.
+
+Administration Panel (Cockpit): A user-friendly interface that enables effective management of your Brosta applications, providing a central point for control and configuration.
+
+Operating System (Brosta OS): A lightweight and efficient operating system specifically designed for Brosta applications, enhancing performance and resource management.
+
+Smart Home Panel: Effortlessly control and monitor smart home devices, providing users with a comprehensive home automation experience.
+
+Flexible Architecture: Built for scalability and customization, enabling seamless integration with a variety of smart home technologies.
+
+Community-Driven: Open-source and actively supported by a growing community, promoting collaboration and shared development efforts.
+
+Real Machine Management via Cockpit: Manage real machines such as PLCs, sensors, and even spacecraft functions through the intuitive Cockpit Panel.
+
+User Configurable Settings
+To maintain smooth operation while allowing user customization, the following settings can be adjusted:
+
+General Configuration
+BRO_NANOSECONDS_IN_SECOND: Sets the number of nanoseconds in a second (set to 1000000000ULL), essential for precise timing calculations.
+Calibration and Smoothing
+v_tasks_per_second: Monitors the current tasks-per-second performance, dynamically updated during runtime.
+
+v_calibration_loops: Adjusts the number of loops used in each calibration cycle based on task execution time.
+
+v_threshold_variance: Sets the threshold for acceptable timing variance in task execution.
+
+v_optimal_delay_us: Specifies the optimal delay between tasks in microseconds.
+
+adaptive_smoothing: A boolean to enable or disable adaptive smoothing for task timing adjustments.
+
+Batch and Task Limits
+MAX_BATCH_LIMIT: Maximum number of task batches allowed in the system.
+
+MAX_TASKS_PER_BATCH: Limits the number of tasks processed within a single batch.
+
+Runtime Configurable Constants
+BATCH_LIMIT: Adjusts the number of batches processed at runtime.
+
+TIME_QUANTUM: Sets the time (in microseconds) between cycles in the task execution loop.
+
+Getting Started
+To set up your Brosta Interframework environment, follow these steps:
+
+Clone the Repository:
+
+bash
+Αντιγραφή κώδικα
+git clone https://github.com/Brosta/interframework.git
+Install Dependencies:
+
+bash
+Αντιγραφή κώδικα
 cd interframework
 composer install
-Run the development server:
+Run the Development Server:
+
+bash
+Αντιγραφή κώδικα
 php -S localhost:8000
-Open your web browser and go to http://localhost:8000
-Documentation:
+Open your Web Browser: Navigate to http://localhost:8000 to access the application.
 
-For more detailed documentation, please refer to the wiki: https://pages.github.com/
+Documentation
+For detailed documentation, please refer to the official wiki.
 
-Community:
-
+Community Engagement
 Join the Brosta community to get help, share ideas, and contribute to the project:
 
-Discord:
-Forum: https://brosta.org/forum
-Additional Information:
+Discord: Join our discussions and connect with other users.
+Forum: Brosta Forum – Share your experiences and ask questions.
+Additional Information
+Brosta OS: Learn more about Brosta OS.
+Cockpit: Explore the Cockpit Panel.
+Contributions
+We welcome contributions from the community! Please refer to the following resources for more information on how to get involved:
 
-Brosta OS: https://brosta.org/os
-Cockpit: https://brosta.org/cockpit
-Contributions:
-Documentation: https://brosta.org/documentation
-Installation: https://brosta.org/installation
+Documentation
+Installation Guide
+License
+The Brosta Interframework is licensed under the MIT License.
 
-We welcome contributions from the community. Please see the CONTRIBUTING.md file for more information.
-
-License:
-
-Brosta interframework is licensed under the MIT License.
-
-Disclaimer:
-
-I have researched and added information about the features and capabilities of Brosta's Interframework based on publicly available sources. However, it is important to note that this information may not be exhaustive or entirely accurate. For the most up-to-date and accurate information, please refer to the official Brosta documentation and community resources.
+Disclaimer
+This document has been compiled based on the available features and capabilities of the Brosta Interframework. For the most up-to-date and accurate information, please consult the official Brosta documentation and community resources.
