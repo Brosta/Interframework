@@ -1,8 +1,7 @@
 ![My Picture](https://brosta.org/brosta.png)
 # Brostά Interframework
-The **Brostά Interframework** represents a cutting-edge **embedded operating system**,
-seamlessly integrating **hybrid multitasking** and **parallelism** to optimize performance and resource management.
 
+The **Brostά Interframework** is a cutting-edge **embedded operating system** that seamlessly integrates **hybrid multitasking** and **parallelism** to optimize performance and resource management.
 - **Website:** <a href="https://brosta.org" target="_blank">Brostά</a>
 
 ## Overview
