@@ -1,5 +1,5 @@
 # Brosta Interframework
-**The Brosta Interframework ** represents a cutting-edge **embedded operating system**,
+The **Brosta Interframework** represents a cutting-edge **embedded operating system**,
 seamlessly integrating **hybrid multitasking** and **parallelism** to optimize performance and resource management.
 
 ## Overview
