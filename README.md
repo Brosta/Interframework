@@ -80,7 +80,7 @@ For detailed documentation, please refer to the official wiki.
 ## Community Engagement
 Join the Brosta community to get help, share ideas, and contribute to the project:
 - **Discord:** Join our discussions and connect with other users.
-- **Forum:** [Brosta Forum](https://forum.brosta.com) – Share your experiences and ask questions.
+- **Forum:** [Brosta Forum](https://forum.brosta.org) – Share your experiences and ask questions.
 
 ## Additional Information
 - **Brosta OS:** Learn more about Brosta OS.
