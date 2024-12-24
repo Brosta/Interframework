@@ -56,6 +56,7 @@ To maintain smooth operation while allowing user customization, the following se
 
 ## Getting Started
 To set up your Brostά Interframework environment, follow these steps:
+Note: The Brosta OS in C is not part of this setup; this is specifically for the client area.
 
 1. **Clone the Repository:**
    ```bash
@@ -75,7 +76,6 @@ To set up your Brostά Interframework environment, follow these steps:
 
 4. **Open your Web Browser:**  
    Navigate to [http://localhost:8000](http://localhost:8000) to access the application.
-   Note: The Brosta OS in C is not part of this setup; this is specifically for the client area.
 
 ## Documentation
 For detailed documentation, please refer to the official wiki.
