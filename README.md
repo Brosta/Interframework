@@ -75,6 +75,7 @@ To set up your Brostά Interframework environment, follow these steps:
 
 4. **Open your Web Browser:**  
    Navigate to [http://localhost:8000](http://localhost:8000) to access the application.
+   Note: The Brosta OS in C is not part of this setup; this is specifically for the client area.
 
 ## Documentation
 For detailed documentation, please refer to the official wiki.
