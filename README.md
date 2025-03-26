@@ -1,4 +1,4 @@
-![My Picture]([https://brosta.org/brosta2.png](https://brosta.org/assets/icons/brosta/brosta.png]))
+![My Picture](https://brosta.org/assets/icons/brosta/brosta.png)
 # Brostά Interframework
 
 The **Brostά Interframework** is a cutting-edge **embedded operating system** that seamlessly integrates **hybrid multitasking** and **parallelism** to optimize performance and resource management.
