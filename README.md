@@ -2,7 +2,7 @@
 # Brostά Interframework
 
 The **Brostά Interframework** is a cutting-edge **embedded operating system** that seamlessly integrates **hybrid multitasking** and **parallelism** to optimize performance and resource management.
-- **Website:** <a href="https://brosta.org" target="_blank">Brostά</a>
+- **Website:** <a href="https://brosta.org/assets/icons/brosta/brosta.png" target="_blank">Brostά</a>
 
 ## Overview
 The **Brostά Interframework** is a revolutionary multilingual interframework designed for modern applications, seamlessly integrating an administration panel, operating system, and smart home functionalities. Crafted with stringent specifications inspired by spacecraft technology, this advanced interframework focuses on hybrid parallel multitasking, allowing support for multiple multitasking methods, including pre-emptive and cooperative multitasking, to enhance efficiency and performance.
