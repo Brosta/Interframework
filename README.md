@@ -3,7 +3,7 @@
 
 This is Now Formally Established: M(M(X)) = X
 
-- **Consciousness website:** <a href="https://brosta.org](https://www.brosta.org/consciousness/index_en.html" target="_blank">The Consciousness Between(Metaxy)- EN</a>
+- **Consciousness website:** <a href="https://brosta.org](https://www.brosta.org/consciousness/index_en.html" target="_blank">The Consciousness Between(Metaxy) - EN</a>
 
 ![My Picture](https://brosta.org/assets/icons/brosta/metaxy.jpeg)
 
