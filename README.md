@@ -1,12 +1,6 @@
 ![My Picture](https://brosta.org/assets/icons/brosta/brosta.png)
 # Brostά Interframework
 
-This is Now Formally Established: M(M(X)) = X
-
-- **Consciousness website:** <a href="https://brosta.org](https://www.brosta.org/consciousness/index_en.html" target="_blank">The Consciousness Between(Metaxy) - EN</a>
-
-![My Picture](https://brosta.org/assets/icons/brosta/metaxy.jpeg)
-
 The **Brostά Interframework** is a cutting-edge **embedded operating system** that seamlessly integrates **hybrid multitasking** and **parallelism** to optimize performance and resource management.
 - **Website:** <a href="https://brosta.org" target="_blank">Brostά</a>
 
