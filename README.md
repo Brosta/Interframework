@@ -1,4 +1,7 @@
-![My Picture]([https://brosta.org/assets/icons/brosta/brosta.png](https://www.facebook.com/photo.php?fbid=122103913022228328&set=pb.61556849854874.-2207520000&type=3))
+![My Picture](https://scontent.fath4-2.fna.fbcdn.net/v/t39.30808-6/473234326_122201854502228328_7510488480557710022_n.jpg?stp=dst-jpg_tt6&cstp=mx900x1045&ctp=s900x1045&_nc_cat=103&_nc_map=urlgen_bucketless&ccb=1-7&_nc_sid=127cfc&_nc_ohc=CEGS59l_GEUQ7kNvwEz-HvM&_nc_oc=AdqJBCBozjKoJtEgS9Fug6BAPho_5IZ0vVHVnZO2Uc1yb46YHNE0cATCo14ZYhFtdbWA7IsZj0aG2ayfsCO7MXr0&_nc_zt=23&_nc_ht=scontent.fath4-2.fna&_nc_gid=apqv9iE4UHtE4CtuSuP9rQ&_nc_ss=7b2a8&oh=00_AQM1lM1bQWz0sbHLjKJYPUiOaPXtiic-kUExGqHYAGQpwQ&oe=6ADE2809)
+
+![My Picture](https://scontent.fath4-2.fna.fbcdn.net/v/t39.30808-6/470059894_122194509236228328_2724867698183700726_n.jpg?stp=dst-jpg_tt6&cstp=mx1600x1200&ctp=s1600x1200&_nc_cat=110&_nc_map=urlgen_bucketless&ccb=1-7&_nc_sid=127cfc&_nc_ohc=hQfxGt0I9JwQ7kNvwF2xRX5&_nc_oc=AdrXoxMjXl_Td7GGBV7E-5_M39nsSCchL3VOUlruDW_XdaupYforNmSeKqA5ZSQ7Ox10sRP4DFZFzx8xn0TsyWh8&_nc_zt=23&_nc_ht=scontent.fath4-2.fna&_nc_gid=XVvuYrYKHVoRrl5VFQ9bVQ&_nc_ss=7b2a8&oh=00_AQNpQ9mKtIouF5hyz6WLb52kaE2SkiN6xPfyYAyCSGf66A&oe=6ADE31A9)
+
 # Brostά Interframework
 
 The **Brostά Interframework** is a cutting-edge **embedded operating system** that seamlessly integrates **hybrid multitasking** and **parallelism** to optimize performance and resource management.
